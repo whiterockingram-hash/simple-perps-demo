@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simple Perps</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  *{box-sizing:border-box}
+  body{font-family:system-ui,-apple-system,sans-serif;background:radial-gradient(circle at top,#1b2130,#0b0d12 60%);color:#e8eaf0;max-width:440px;margin:0 auto;padding:24px 16px;min-height:100vh}
+  header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+  h1{font-size:22px;margin:0}
+  .badge{background:#3b2f00;color:#fbbf24;font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;letter-spacing:1px}
+  .card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:20px;padding:20px;margin-bottom:14px}
+  .tabs{display:flex;gap:6px;margin-bottom:12px}
+  .tab{flex:1;padding:10px;border-radius:12px;background:#222837;border:none;color:#aab;font-weight:600;cursor:pointer}
+  .tab.on{background:#3b82f6;color:#fff}
+  .price{font-size:40px;font-weight:800;margin:4px 0}
+  .chg{font-weight:700;font-size:14px}.pos{color:#22c55e}.neg{color:#ef4444}
+  canvas{margin-top:10px}
+  label{font-size:13px;color:#99a}
+  input{width:100%;font-size:18px;padding:12px;border-radius:12px;border:1px solid #2d3340;background:#141821;color:#fff;margin:6px 0 12px}
+  .row{display:flex;gap:10px}
+  button.big{flex:1;padding:18px;font-size:17px;font-weight:700;border:none;border-radius:14px;cursor:pointer;transition:transform .1s,opacity .2s}
+  button.big:active{transform:scale(.97)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .up{background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff}
+  .down{background:linear-gradient(135deg,#b91c1c,#ef4444);color:#fff}
+  .plain{background:#2d3340;color:#fff;width:100%;margin-top:10px}
+  .wallet{width:100%;padding:14px;border:none;border-radius:14px;background:#3b82f6;color:#fff;font-weight:700;font-size:16px;cursor:pointer}
+  .stat{display:flex;justify-content:space-between;margin:6px 0;font-size:15px}
+  .stat span:first-child{color:#99a}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1f2937;padding:12px 18px;border-radius:12px;font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none;max-width:90%}
+  .toast.show{opacity:1}
+  .note{font-size:12px;color:#778;text-align:center;margin-top:8px}
+</style>
+</head>
+<body>
+  <header><h1>Simple Perps</h1><span class="badge">TESTNET</span></header>
+
+  <div class="card"><button class="wallet" id="connect">Connect Wallet</button>
+    <div id="acct" style="display:none">
+      <div class="stat"><span>Balance</span><b id="bal">-</b></div>
+      <div id="posBox"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="tabs" id="tabs"></div>
+    <div class="price" id="price">-</div>
+    <span class="chg" id="chg"></span>
+    <canvas id="chart" height="110"></canvas>
+  </div>
+
+  <div class="card">
+    <label>Amount</label>
+    <input id="size" type="number" value="0.01" step="0.01" min="0">
+    <div class="row">
+      <button class="big up" id="upBtn">▲ Up</button>
+      <button class="big down" id="downBtn">▼ Down</button>
+    </div>
+    <button class="big plain" id="closeBtn">Close my trade</button>
+    <div class="note">2x leverage · test money only, nothing here is real</div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script type="module">
+  import * as hl from "https://esm.sh/jsr/@nktkas/hyperliquid";
+  import { createWalletClient, custom } from "https://esm.sh/viem";
+  import { generatePrivateKey, privateKeyToAccount } from "https://esm.sh/viem/accounts";
+
+  const COINS = ['BTC','ETH','SOL'];
+  const transport = new hl.HttpTransport({ isTestnet: true });
+  const info = new hl.InfoClient({ transport });
+  const $ = id => document.getElementById(id);
+  let coin = 'BTC', user, trader, meta, ctx = {};
+
+  const toast = t => { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 3500); };
+  const money = n => '$' + Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  const busy = on => ['upBtn','downBtn','closeBtn'].forEach(id => $(id).disabled = on);
+
+  // Coin tabs
+  $('tabs').innerHTML = COINS.map(c => `<button class="tab ${c===coin?'on':''}" data-c="${c}">${c}</button>`).join('');
+  $('tabs').onclick = e => { if (!e.target.dataset.c) return; coin = e.target.dataset.c;
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.c===coin));
+    chart.data.labels = []; chart.data.datasets[0].data = []; refresh(); };
+
+  // Chart
+  const chart = new Chart($('chart'), { type:'line',
+    data:{ labels:[], datasets:[{ data:[], borderColor:'#3b82f6', borderWidth:2, pointRadius:0, tension:.3, fill:true,
+      backgroundColor: c => { const g = c.chart.ctx.createLinearGradient(0,0,0,110); g.addColorStop(0,'rgba(59,130,246,.35)'); g.addColorStop(1,'rgba(59,130,246,0)'); return g; } }] },
+    options:{ animation:false, plugins:{legend:{display:false}}, scales:{ x:{display:false}, y:{display:false} } } });
+
+  async function loadMeta() {
+    const [m, ctxs] = await info.metaAndAssetCtxs();
+    meta = m; m.universe.forEach((u,i) => ctx[u.name] = ctxs[i]);
+  }
+
+  async function refresh() {
+    try {
+      const mids = await info.allMids();
+      const px = Number(mids[coin]);
+      $('price').textContent = money(px);
+      const prev = Number(ctx[coin]?.prevDayPx);
+      if (prev) { const pct = (px - prev) / prev * 100;
+        $('chg').textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '% today';
+        $('chg').className = 'chg ' + (pct >= 0 ? 'pos' : 'neg'); }
+      chart.data.labels.push(''); chart.data.datasets[0].data.push(px);
+      if (chart.data.labels.length > 80) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); }
+      chart.update();
+      if (user) await loadAccount();
+    } catch (e) { /* network blip, try again next tick */ }
+  }
+
+  async function loadAccount() {
+    const s = await info.clearinghouseState({ user });
+    $('bal').textContent = money(s.marginSummary.accountValue);
+    const p = s.assetPositions.map(a => a.position).find(p => p.coin === coin);
+    if (!p) { $('posBox').innerHTML = `<div class="stat"><span>Open trade</span><b>None</b></div>`; return; }
+    const pnl = Number(p.unrealizedPnl), dir = Number(p.szi) > 0 ? '▲ Up' : '▼ Down';
+    $('posBox').innerHTML = `
+      <div class="stat"><span>Open trade</span><b>${dir} ${Math.abs(p.szi)} ${coin}</b></div>
+      <div class="stat"><span>Entry</span><b>${money(p.entryPx)}</b></div>
+      <div class="stat"><span>Profit</span><b class="${pnl>=0?'pos':'neg'}">${pnl>=0?'+':''}${money(pnl)}</b></div>
+      <div class="stat"><span>Liquidation</span><b class="neg">${p.liquidationPx ? money(p.liquidationPx) : '-'}</b></div>`;
+  }
+
+  $('connect').onclick = async () => {
+    if (!window.ethereum) return toast('Install MetaMask first');
+    try {
+      [user] = await ethereum.request({ method: 'eth_requestAccounts' });
+      let key = localStorage.getItem('hlKey');
+      if (!key) {
+        key = generatePrivateKey();
+        const wallet = createWalletClient({ account: user, transport: custom(ethereum) });
+        await new hl.ExchangeClient({ wallet, transport })
+          .approveAgent({ agentAddress: privateKeyToAccount(key).address, agentName: 'simple' });
+        localStorage.setItem('hlKey', key);
+      }
+      trader = new hl.ExchangeClient({ wallet: privateKeyToAccount(key), transport });
+      $('connect').textContent = '✓ ' + user.slice(0,6) + '…' + user.slice(-4);
+      $('acct').style.display = 'block';
+      toast('Wallet connected'); refresh();
+    } catch (e) { toast(e.message.includes('deposit') ? 'This wallet needs test funds first' : 'Could not connect: ' + e.message); }
+  };
+
+  async function send(isBuy, size, reduceOnly) {
+    const asset = meta.universe.findIndex(u => u.name === coin);
+    const px = Number((await info.allMids())[coin]) * (isBuy ? 1.01 : 0.99);
+    await trader.updateLeverage({ asset, isCross: true, leverage: 2 });
+    return trader.order({ orders: [{ a: asset, b: isBuy, p: px.toPrecision(5), s: String(size), r: reduceOnly, t: { limit: { tif: 'Ioc' } } }], grouping: 'na' });
+  }
+
+  async function trade(isBuy) {
+    if (!trader) return toast('Connect your wallet first');
+    const size = $('size').value;
+    if (!(size > 0)) return toast('Enter an amount');
+    busy(true); toast('Placing trade…');
+    try { await send(isBuy, size, false); toast(isBuy ? 'You\'re betting UP ▲' : 'You\'re betting DOWN ▼'); refresh(); }
+    catch (e) { toast('Trade failed: ' + e.message); }
+    busy(false);
+  }
+
+  $('upBtn').onclick = () => trade(true);
+  $('downBtn').onclick = () => trade(false);
+  $('closeBtn').onclick = async () => {
+    if (!trader) return toast('Connect your wallet first');
+    const s = await info.clearinghouseState({ user });
+    const p = s.assetPositions.map(a => a.position).find(p => p.coin === coin);
+    if (!p) return toast('No open trade on ' + coin);
+    busy(true);
+    try { await send(Number(p.szi) < 0, Math.abs(p.szi), true); toast('Trade closed'); refresh(); }
+    catch (e) { toast('Close failed: ' + e.message); }
+    busy(false);
+  };
+
+  await loadMeta();
+  setInterval(refresh, 2000); setInterval(loadMeta, 60000); refresh();
+</script>
+</body>
+</html>
