@@ -75,7 +75,7 @@
       <button class="big down" id="downBtn">▼ Down</button>
     </div>
     <button class="big plain" id="closeBtn">Close my trade</button>
-    <div class="note">2x leverage · test money only, nothing here is real</div>
+    <div class="note">2x leverage · 0.03% app fee · test money only, nothing here is real</div>
   </div>
   <div class="toast" id="toast"></div>
 
@@ -83,12 +83,18 @@
   // Prices load with plain requests, so the page works on phones straight away.
   // The heavier wallet tools only download when someone taps Connect Wallet.
   const API = 'https://api.hyperliquid-testnet.xyz/info';
+  // App fee ("builder fee"): paid to this wallet on every trade placed through Simple Perps.
+  // Hyperliquid counts it in tenths of a basis point, so 30 = 0.03%.
+  const BUILDER = '0x96405E5Cf188526D6F0D2e8A7a403Aa1e6d11B00'.toLowerCase();
+  const BUILDER_FEE = 30, BUILDER_FEE_TEXT = '0.03%';
+  let feeOn = false;
   const post = body => fetch(API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }).then(r => r.json());
   const info = {
     allMids: () => post({ type:'allMids' }),
     metaAndAssetCtxs: () => post({ type:'metaAndAssetCtxs' }),
     clearinghouseState: ({ user }) => post({ type:'clearinghouseState', user }),
     openOrders: ({ user }) => post({ type:'frontendOpenOrders', user }),
+    maxBuilderFee: ({ user, builder }) => post({ type:'maxBuilderFee', user, builder }),
   };
   let hl, viem, viemAccounts, transport;
   async function loadWalletTools() {
@@ -168,14 +174,24 @@
       await loadWalletTools();
       const { generatePrivateKey, privateKeyToAccount } = viemAccounts;
       [user] = await ethereum.request({ method: 'eth_requestAccounts' });
+      const wallet = viem.createWalletClient({ account: user, transport: viem.custom(ethereum) });
+      const userClient = new hl.ExchangeClient({ wallet, transport });
       let key = localStorage.getItem('hlKey');
       if (!key) {
         key = generatePrivateKey();
-        const wallet = viem.createWalletClient({ account: user, transport: viem.custom(ethereum) });
-        await new hl.ExchangeClient({ wallet, transport })
-          .approveAgent({ agentAddress: privateKeyToAccount(key).address, agentName: 'simple' });
+        await userClient.approveAgent({ agentAddress: privateKeyToAccount(key).address, agentName: 'simple' });
         localStorage.setItem('hlKey', key);
       }
+      // App fee: the user approves it once from their own wallet. If Hyperliquid won't accept it
+      // (for example the fee wallet isn't funded yet), trading carries on without the fee.
+      try {
+        feeOn = Number(await info.maxBuilderFee({ user, builder: BUILDER })) >= BUILDER_FEE;
+        if (!feeOn) {
+          toast(`Approve the ${BUILDER_FEE_TEXT} app fee in your wallet`);
+          await userClient.approveBuilderFee({ builder: BUILDER, maxFeeRate: BUILDER_FEE_TEXT });
+          feeOn = true;
+        }
+      } catch (e) { feeOn = false; console.log('App fee not active:', e.message); }
       trader = new hl.ExchangeClient({ wallet: privateKeyToAccount(key), transport });
       $('connect').textContent = '✓ ' + user.slice(0,6) + '…' + user.slice(-4);
       $('acct').style.display = 'block';
@@ -203,7 +219,14 @@
       orders.push({ a: asset, b: !isBuy, p: fmtPx(exit, asset), s: String(size), r: true,
         t: { trigger: { isMarket: true, triggerPx: fmtPx(trigger, asset), tpsl: kind } } });
     }
-    return trader.order({ orders, grouping: orders.length > 1 ? 'normalTpsl' : 'na' });
+    const req = { orders, grouping: orders.length > 1 ? 'normalTpsl' : 'na' };
+    if (feeOn) req.builder = { b: BUILDER, f: BUILDER_FEE };
+    try { return await trader.order(req); }
+    catch (e) {
+      // If the fee is ever refused, place the trade without it rather than failing
+      if (req.builder && /builder/i.test(e.message)) { feeOn = false; delete req.builder; return trader.order(req); }
+      throw e;
+    }
   }
 
   // Cancel any stop-loss / take-profit left on this coin (used when closing a trade)
