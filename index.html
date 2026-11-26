@@ -64,13 +64,27 @@
   <div class="toast" id="toast"></div>
 
 <script type="module">
-  import * as hl from "https://esm.sh/jsr/@nktkas/hyperliquid";
-  import { createWalletClient, custom } from "https://esm.sh/viem";
-  import { generatePrivateKey, privateKeyToAccount } from "https://esm.sh/viem/accounts";
+  // Prices load with plain requests, so the page works on phones straight away.
+  // The heavier wallet tools only download when someone taps Connect Wallet.
+  const API = 'https://api.hyperliquid-testnet.xyz/info';
+  const post = body => fetch(API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }).then(r => r.json());
+  const info = {
+    allMids: () => post({ type:'allMids' }),
+    metaAndAssetCtxs: () => post({ type:'metaAndAssetCtxs' }),
+    clearinghouseState: ({ user }) => post({ type:'clearinghouseState', user }),
+  };
+  let hl, viem, viemAccounts, transport;
+  async function loadWalletTools() {
+    if (hl) return;
+    [hl, viem, viemAccounts] = await Promise.all([
+      import("https://esm.sh/jsr/@nktkas/hyperliquid"),
+      import("https://esm.sh/viem"),
+      import("https://esm.sh/viem/accounts"),
+    ]);
+    transport = new hl.HttpTransport({ isTestnet: true });
+  }
 
   const COINS = ['BTC','ETH','SOL'];
-  const transport = new hl.HttpTransport({ isTestnet: true });
-  const info = new hl.InfoClient({ transport });
   const $ = id => document.getElementById(id);
   let coin = 'BTC', user, trader, meta, ctx = {};
 
@@ -82,10 +96,10 @@
   $('tabs').innerHTML = COINS.map(c => `<button class="tab ${c===coin?'on':''}" data-c="${c}">${c}</button>`).join('');
   $('tabs').onclick = e => { if (!e.target.dataset.c) return; coin = e.target.dataset.c;
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.c===coin));
-    chart.data.labels = []; chart.data.datasets[0].data = []; refresh(); };
+    if (chart) { chart.data.labels = []; chart.data.datasets[0].data = []; } refresh(); };
 
-  // Chart
-  const chart = new Chart($('chart'), { type:'line',
+  // Chart (skipped quietly if the chart library didn't load)
+  const chart = !window.Chart ? null : new Chart($('chart'), { type:'line',
     data:{ labels:[], datasets:[{ data:[], borderColor:'#3b82f6', borderWidth:2, pointRadius:0, tension:.3, fill:true,
       backgroundColor: c => { const g = c.chart.ctx.createLinearGradient(0,0,0,110); g.addColorStop(0,'rgba(59,130,246,.35)'); g.addColorStop(1,'rgba(59,130,246,0)'); return g; } }] },
     options:{ animation:false, plugins:{legend:{display:false}}, scales:{ x:{display:false}, y:{display:false} } } });
@@ -104,9 +118,11 @@
       if (prev) { const pct = (px - prev) / prev * 100;
         $('chg').textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '% today';
         $('chg').className = 'chg ' + (pct >= 0 ? 'pos' : 'neg'); }
-      chart.data.labels.push(''); chart.data.datasets[0].data.push(px);
-      if (chart.data.labels.length > 80) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); }
-      chart.update();
+      if (chart) {
+        chart.data.labels.push(''); chart.data.datasets[0].data.push(px);
+        if (chart.data.labels.length > 80) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); }
+        chart.update();
+      }
       if (user) await loadAccount();
     } catch (e) { /* network blip, try again next tick */ }
   }
@@ -125,13 +141,16 @@
   }
 
   $('connect').onclick = async () => {
-    if (!window.ethereum) return toast('Install MetaMask first');
+    if (!window.ethereum) return toast('Open this page in the MetaMask app browser to connect');
     try {
+      toast('Loading wallet tools…');
+      await loadWalletTools();
+      const { generatePrivateKey, privateKeyToAccount } = viemAccounts;
       [user] = await ethereum.request({ method: 'eth_requestAccounts' });
       let key = localStorage.getItem('hlKey');
       if (!key) {
         key = generatePrivateKey();
-        const wallet = createWalletClient({ account: user, transport: custom(ethereum) });
+        const wallet = viem.createWalletClient({ account: user, transport: viem.custom(ethereum) });
         await new hl.ExchangeClient({ wallet, transport })
           .approveAgent({ agentAddress: privateKeyToAccount(key).address, agentName: 'simple' });
         localStorage.setItem('hlKey', key);
@@ -173,8 +192,8 @@
     busy(false);
   };
 
-  await loadMeta();
-  setInterval(refresh, 2000); setInterval(loadMeta, 60000); refresh();
+  setInterval(refresh, 2000); setInterval(() => loadMeta().catch(() => {}), 60000);
+  loadMeta().catch(() => {}).finally(refresh);
 </script>
 </body>
 </html>
