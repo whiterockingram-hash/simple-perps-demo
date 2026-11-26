@@ -40,6 +40,9 @@
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1f2937;padding:12px 18px;border-radius:12px;font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none;max-width:90%}
   .toast.show{opacity:1}
   .note{font-size:12px;color:#778;text-align:center;margin-top:8px}
+  .two{display:flex;gap:10px}.two>div{flex:1;min-width:0}
+  .two input{font-size:16px;padding:10px}
+  .hint{font-size:12px;color:#778;margin:-6px 0 12px}
 </style>
 </head>
 <body>
@@ -62,6 +65,11 @@
   <div class="card">
     <label>Amount</label>
     <input id="size" type="number" value="0.01" step="0.01" min="0">
+    <div class="two">
+      <div><label>Stop-loss price</label><input id="sl" type="number" step="any" min="0" placeholder="Optional" inputmode="decimal"></div>
+      <div><label>Take-profit price</label><input id="tp" type="number" step="any" min="0" placeholder="Optional" inputmode="decimal"></div>
+    </div>
+    <div class="hint" id="tpslHint">Optional. Closes your trade automatically at these prices, even when the app is closed.</div>
     <div class="row">
       <button class="big up" id="upBtn">▲ Up</button>
       <button class="big down" id="downBtn">▼ Down</button>
@@ -80,6 +88,7 @@
     allMids: () => post({ type:'allMids' }),
     metaAndAssetCtxs: () => post({ type:'metaAndAssetCtxs' }),
     clearinghouseState: ({ user }) => post({ type:'clearinghouseState', user }),
+    openOrders: ({ user }) => post({ type:'frontendOpenOrders', user }),
   };
   let hl, viem, viemAccounts, transport;
   async function loadWalletTools() {
@@ -136,16 +145,20 @@
   }
 
   async function loadAccount() {
-    const s = await info.clearinghouseState({ user });
+    const [s, orders] = await Promise.all([info.clearinghouseState({ user }), info.openOrders({ user }).catch(() => [])]);
     $('bal').textContent = money(s.marginSummary.accountValue);
     const p = s.assetPositions.map(a => a.position).find(p => p.coin === coin);
+    const trig = orders.filter(o => o.coin === coin && o.isTrigger);
+    const slO = trig.find(o => /stop/i.test(o.orderType)), tpO = trig.find(o => /take/i.test(o.orderType));
     if (!p) { $('posBox').innerHTML = `<div class="stat"><span>Open trade</span><b>None</b></div>`; return; }
     const pnl = Number(p.unrealizedPnl), dir = Number(p.szi) > 0 ? '▲ Up' : '▼ Down';
     $('posBox').innerHTML = `
       <div class="stat"><span>Open trade</span><b>${dir} ${Math.abs(p.szi)} ${coin}</b></div>
       <div class="stat"><span>Entry</span><b>${money(p.entryPx)}</b></div>
       <div class="stat"><span>Profit</span><b class="${pnl>=0?'pos':'neg'}">${pnl>=0?'+':''}${money(pnl)}</b></div>
-      <div class="stat"><span>Liquidation</span><b class="neg">${p.liquidationPx ? money(p.liquidationPx) : '-'}</b></div>`;
+      <div class="stat"><span>Liquidation</span><b class="neg">${p.liquidationPx ? money(p.liquidationPx) : '-'}</b></div>
+      <div class="stat"><span>Stop-loss</span><b>${slO ? money(slO.triggerPx) : 'Not set'}</b></div>
+      <div class="stat"><span>Take-profit</span><b>${tpO ? money(tpO.triggerPx) : 'Not set'}</b></div>`;
   }
 
   $('connect').onclick = async () => {
@@ -170,19 +183,54 @@
     } catch (e) { toast(e.message.includes('deposit') ? 'This wallet needs test funds first' : 'Could not connect: ' + e.message); }
   };
 
-  async function send(isBuy, size, reduceOnly) {
+  // Hyperliquid prices: at most 5 significant figures and (6 - size decimals) decimal places
+  function fmtPx(x, asset) {
+    const maxDec = Math.max(0, 6 - (meta.universe[asset].szDecimals || 0));
+    return String(Number(Number(Number(x).toPrecision(5)).toFixed(maxDec)));
+  }
+
+  async function send(isBuy, size, reduceOnly, tpsl = {}) {
     const asset = meta.universe.findIndex(u => u.name === coin);
-    const px = Number((await info.allMids())[coin]) * (isBuy ? 1.01 : 0.99);
+    const mid = Number((await info.allMids())[coin]);
+    const px = mid * (isBuy ? 1.01 : 0.99);
     await trader.updateLeverage({ asset, isCross: true, leverage: 2 });
-    return trader.order({ orders: [{ a: asset, b: isBuy, p: px.toPrecision(5), s: String(size), r: reduceOnly, t: { limit: { tif: 'Ioc' } } }], grouping: 'na' });
+    const orders = [{ a: asset, b: isBuy, p: fmtPx(px, asset), s: String(size), r: reduceOnly, t: { limit: { tif: 'Ioc' } } }];
+    // Stop-loss / take-profit: reduce-only trigger orders on the opposite side, held by Hyperliquid
+    for (const kind of ['tp', 'sl']) {
+      const trigger = tpsl[kind];
+      if (!trigger) continue;
+      const exit = trigger * (isBuy ? 0.9 : 1.1); // generous slippage so the market exit always fills
+      orders.push({ a: asset, b: !isBuy, p: fmtPx(exit, asset), s: String(size), r: true,
+        t: { trigger: { isMarket: true, triggerPx: fmtPx(trigger, asset), tpsl: kind } } });
+    }
+    return trader.order({ orders, grouping: orders.length > 1 ? 'normalTpsl' : 'na' });
+  }
+
+  // Cancel any stop-loss / take-profit left on this coin (used when closing a trade)
+  async function cancelTpsl() {
+    const asset = meta.universe.findIndex(u => u.name === coin);
+    const orders = await info.openOrders({ user }).catch(() => []);
+    const cancels = orders.filter(o => o.coin === coin && o.isTrigger).map(o => ({ a: asset, o: o.oid }));
+    if (cancels.length) await trader.cancel({ cancels }).catch(() => {});
   }
 
   async function trade(isBuy) {
     if (!trader) return toast('Connect your wallet first');
     const size = $('size').value;
     if (!(size > 0)) return toast('Enter an amount');
+    const sl = Number($('sl').value) || 0, tp = Number($('tp').value) || 0;
+    const mid = Number((await info.allMids())[coin]);
+    // For an UP trade the stop-loss sits below the price and take-profit above; DOWN is the reverse
+    if (sl && (isBuy ? sl >= mid : sl <= mid)) return toast(`Stop-loss must be ${isBuy ? 'below' : 'above'} ${money(mid)} for a ${isBuy ? 'UP' : 'DOWN'} trade`);
+    if (tp && (isBuy ? tp <= mid : tp >= mid)) return toast(`Take-profit must be ${isBuy ? 'above' : 'below'} ${money(mid)} for a ${isBuy ? 'UP' : 'DOWN'} trade`);
     busy(true); toast('Placing trade…');
-    try { await send(isBuy, size, false); toast(isBuy ? 'You\'re betting UP ▲' : 'You\'re betting DOWN ▼'); refresh(); }
+    try {
+      await send(isBuy, size, false, { sl, tp });
+      const extras = [sl && 'stop-loss', tp && 'take-profit'].filter(Boolean).join(' and ');
+      toast((isBuy ? 'You\'re betting UP ▲' : 'You\'re betting DOWN ▼') + (extras ? ' with ' + extras : ''));
+      $('sl').value = ''; $('tp').value = '';
+      refresh();
+    }
     catch (e) { toast('Trade failed: ' + e.message); }
     busy(false);
   }
@@ -195,7 +243,7 @@
     const p = s.assetPositions.map(a => a.position).find(p => p.coin === coin);
     if (!p) return toast('No open trade on ' + coin);
     busy(true);
-    try { await send(Number(p.szi) < 0, Math.abs(p.szi), true); toast('Trade closed'); refresh(); }
+    try { await send(Number(p.szi) < 0, Math.abs(p.szi), true); await cancelTpsl(); toast('Trade closed'); refresh(); }
     catch (e) { toast('Close failed: ' + e.message); }
     busy(false);
   };
