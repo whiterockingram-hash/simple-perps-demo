@@ -1,6 +1,6 @@
 // Keeps the app shell available so it opens quickly from the home screen.
 // Prices always come live from the network; only the page itself is cached.
-const CACHE = 'simple-perps-v1';
+const CACHE = 'simple-perps-v2';
 const SHELL = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
