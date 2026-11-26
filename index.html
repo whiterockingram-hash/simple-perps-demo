@@ -43,20 +43,35 @@
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1f2937;padding:12px 18px;border-radius:12px;font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none;max-width:90%}
   .toast.show{opacity:1}
   .note{font-size:12px;color:#778;text-align:center;margin-top:8px}
-  .two{display:flex;gap:10px}.two>div{flex:1;min-width:0}
-  .two input{font-size:16px;padding:10px}
-  .hint{font-size:12px;color:#778;margin:-6px 0 12px}
+  header .wallet{width:auto;padding:9px 14px;font-size:14px;border-radius:12px}
+  header .left{display:flex;align-items:center;gap:8px}
+  .side{display:flex;background:#141821;border-radius:12px;padding:4px;margin-bottom:14px}
+  .side button{flex:1;padding:10px;border:none;border-radius:9px;background:transparent;color:#99a;font-weight:700;font-size:15px;cursor:pointer}
+  .side button.on.long{background:#16a34a;color:#fff}.side button.on.short{background:#dc2626;color:#fff}
+  .line{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:#99a;margin:4px 0}
+  .line b{color:#e8eaf0;font-weight:600}
+  .field{display:flex;align-items:center;background:#141821;border:1px solid #2d3340;border-radius:12px;margin:6px 0 4px;padding:0 12px}
+  .field input{border:none;background:transparent;margin:0;padding:12px 0;font-size:17px;min-width:0}
+  .field input:focus{outline:none}
+  .field span{color:#778;font-size:14px;white-space:nowrap}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:999px;background:#2d3340;border:none;padding:0;margin:14px 0 2px}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#fff;border:3px solid #3b82f6;cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid #3b82f6;cursor:pointer}
+  .marks{display:flex;justify-content:space-between;font-size:11px;color:#667;margin-bottom:12px}
+  .marks span{cursor:pointer}
+  .chk{display:flex;align-items:center;gap:8px;font-size:14px;color:#ccd;margin:6px 0 8px;cursor:pointer}
+  .chk input{width:18px;height:18px;margin:0;accent-color:#3b82f6}
+  .tpsl{display:none;margin-bottom:6px}.tpsl.show{display:block}
+  .tpsl .pair{display:flex;gap:8px}.tpsl .pair .field{flex:1}
+  .tpsl .pair .field:last-child{flex:0 0 38%}
+  .sum{border-top:1px solid rgba(255,255,255,.07);margin-top:10px;padding-top:8px}
+  .go{width:100%;margin-top:14px}
+  .poshead{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+  .poshead h2{font-size:16px;margin:0}
 </style>
 </head>
 <body>
-  <header><h1>Simple Perps</h1><span class="badge">TESTNET</span></header>
-
-  <div class="card"><button class="wallet" id="connect">Connect Wallet</button>
-    <div id="acct" style="display:none">
-      <div class="stat"><span>Balance</span><b id="bal">-</b></div>
-      <div id="posBox"></div>
-    </div>
-  </div>
+  <header><div class="left"><h1>Simple Perps</h1><span class="badge">TESTNET</span></div><button class="wallet" id="connect">Connect</button></header>
 
   <div class="card">
     <div class="tabs" id="tabs"></div>
@@ -67,19 +82,53 @@
   </div>
 
   <div class="card">
-    <label>Amount</label>
-    <input id="size" type="number" value="0.01" step="0.01" min="0">
-    <div class="two">
-      <div><label>Stop-loss price</label><input id="sl" type="number" step="any" min="0" placeholder="Optional" inputmode="decimal"></div>
-      <div><label>Take-profit price</label><input id="tp" type="number" step="any" min="0" placeholder="Optional" inputmode="decimal"></div>
+    <div class="side" id="side">
+      <button class="long on" data-s="long">Long</button>
+      <button class="short" data-s="short">Short</button>
     </div>
-    <div class="hint" id="tpslHint">Optional. Closes your trade automatically at these prices, even when the app is closed.</div>
-    <div class="row">
-      <button class="big up" id="upBtn">▲ Up</button>
-      <button class="big down" id="downBtn">▼ Down</button>
+
+    <div class="line"><span>Available</span><b id="avail">—</b></div>
+
+    <div class="line" style="margin-top:10px"><span>Leverage</span><b id="levV">2x</b></div>
+    <input id="levR" type="range" min="1" max="20" step="1" value="2">
+    <div class="marks" id="levMarks"></div>
+    <div class="hint" id="levWarn" style="display:none;color:#fbbf24;margin:-6px 0 10px">High leverage: a small move against you can liquidate this trade.</div>
+
+    <div class="line"><span>Size</span></div>
+    <div class="field"><input id="usd" type="number" inputmode="decimal" min="0" step="any" value="100"><span>USD</span></div>
+    <input id="pctR" type="range" min="0" max="100" step="1" value="0">
+    <div class="marks" id="pctMarks"><span data-p="0">0%</span><span data-p="25">25%</span><span data-p="50">50%</span><span data-p="75">75%</span><span data-p="100">100%</span></div>
+
+    <label class="chk"><input type="checkbox" id="tpslOn"> Take Profit / Stop Loss</label>
+    <div class="tpsl" id="tpslBox">
+      <div class="pair">
+        <div class="field"><input id="tpPx" type="number" inputmode="decimal" step="any" placeholder="TP price"><span>USD</span></div>
+        <div class="field"><input id="tpPct" type="number" inputmode="decimal" step="any" placeholder="Gain"><span>%</span></div>
+      </div>
+      <div class="pair">
+        <div class="field"><input id="slPx" type="number" inputmode="decimal" step="any" placeholder="SL price"><span>USD</span></div>
+        <div class="field"><input id="slPct" type="number" inputmode="decimal" step="any" placeholder="Loss"><span>%</span></div>
+      </div>
     </div>
-    <button class="big plain" id="closeBtn">Close my trade</button>
-    <div class="note">2x leverage · 0.03% app fee · test money only, nothing here is real</div>
+
+    <div class="sum">
+      <div class="line"><span>Order size</span><b id="sumSize">—</b></div>
+      <div class="line"><span>Margin required</span><b id="sumMargin">—</b></div>
+      <div class="line"><span>Est. liquidation price</span><b id="sumLiq" class="neg">—</b></div>
+      <div class="line"><span>Fees</span><b id="sumFee">—</b></div>
+      <div class="line"><span>Each 1% price move</span><b id="sumMove">—</b></div>
+      <div class="line" id="tpRow" style="display:none"><span>Profit at take profit</span><b id="sumTp" class="pos">—</b></div>
+      <div class="line" id="slRow" style="display:none"><span>Loss at stop loss</span><b id="sumSl" class="neg">—</b></div>
+    </div>
+
+    <button class="big up go" id="goBtn">Long BTC</button>
+    <div class="note">0.03% app fee · test money only, nothing here is real</div>
+  </div>
+
+  <div class="card" id="acct" style="display:none">
+    <div class="poshead"><h2>Position</h2><span class="line" style="margin:0"><span>Balance&nbsp;</span><b id="bal">-</b></span></div>
+    <div id="posBox"></div>
+    <button class="big plain" id="closeBtn">Close position</button>
   </div>
   <div class="toast" id="toast"></div>
 
@@ -116,14 +165,14 @@
   let coin = 'BTC', user, trader, meta, ctx = {};
 
   const toast = t => { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 3500); };
-  const money = n => '$' + Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
-  const busy = on => ['upBtn','downBtn','closeBtn'].forEach(id => $(id).disabled = on);
+  const money = n => (Number(n) < 0 ? '-$' : '$') + Math.abs(Number(n)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  const busy = on => ['goBtn','closeBtn'].forEach(id => $(id).disabled = on);
 
   // Coin tabs
   $('tabs').innerHTML = COINS.map(c => `<button class="tab ${c===coin?'on':''}" data-c="${c}">${c}</button>`).join('');
   $('tabs').onclick = e => { if (!e.target.dataset.c) return; coin = e.target.dataset.c;
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.c===coin));
-    loadCandles(); refresh(); };
+    setLevRange(); loadCandles(); syncFromPct('tp'); syncFromPct('sl'); refresh(); };
 
   // Candle chart: real price history from Hyperliquid, with the live price ticking the last candle
   const TFS = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600 };
@@ -171,6 +220,7 @@
   async function loadMeta() {
     const [m, ctxs] = await info.metaAndAssetCtxs();
     meta = m; m.universe.forEach((u,i) => ctx[u.name] = ctxs[i]);
+    setLevRange(); updateOrder();
   }
 
   async function refresh() {
@@ -183,6 +233,7 @@
         $('chg').textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '% today';
         $('chg').className = 'chg ' + (pct >= 0 ? 'pos' : 'neg'); }
       tickCandle(px);
+      lastMid = px; updateOrder();
       if (user) await loadAccount();
     } catch (e) { /* network blip, try again next tick */ }
   }
@@ -190,13 +241,14 @@
   async function loadAccount() {
     const [s, orders] = await Promise.all([info.clearinghouseState({ user }), info.openOrders({ user }).catch(() => [])]);
     $('bal').textContent = money(s.marginSummary.accountValue);
+    balance = Number(s.withdrawable ?? s.marginSummary.accountValue) || 0;
     const p = s.assetPositions.map(a => a.position).find(p => p.coin === coin);
     const trig = orders.filter(o => o.coin === coin && o.isTrigger);
     const slO = trig.find(o => /stop/i.test(o.orderType)), tpO = trig.find(o => /take/i.test(o.orderType));
-    if (!p) { $('posBox').innerHTML = `<div class="stat"><span>Open trade</span><b>None</b></div>`; return; }
-    const pnl = Number(p.unrealizedPnl), dir = Number(p.szi) > 0 ? '▲ Up' : '▼ Down';
+    if (!p) { $('posBox').innerHTML = `<div class="stat"><span>Open position</span><b>None</b></div>`; return; }
+    const pnl = Number(p.unrealizedPnl), dir = Number(p.szi) > 0 ? 'Long' : 'Short';
     $('posBox').innerHTML = `
-      <div class="stat"><span>Open trade</span><b>${dir} ${Math.abs(p.szi)} ${coin}</b></div>
+      <div class="stat"><span>Open position</span><b class="${dir==='Long'?'pos':'neg'}">${dir} ${Math.abs(p.szi)} ${coin}</b></div>
       <div class="stat"><span>Entry</span><b>${money(p.entryPx)}</b></div>
       <div class="stat"><span>Profit</span><b class="${pnl>=0?'pos':'neg'}">${pnl>=0?'+':''}${money(pnl)}</b></div>
       <div class="stat"><span>Liquidation</span><b class="neg">${p.liquidationPx ? money(p.liquidationPx) : '-'}</b></div>
@@ -230,7 +282,7 @@
         }
       } catch (e) { feeOn = false; console.log('App fee not active:', e.message); }
       trader = new hl.ExchangeClient({ wallet: privateKeyToAccount(key), transport });
-      $('connect').textContent = '✓ ' + user.slice(0,6) + '…' + user.slice(-4);
+      $('connect').textContent = user.slice(0,6) + '…' + user.slice(-4);
       $('acct').style.display = 'block';
       toast('Wallet connected'); refresh();
     } catch (e) { toast(e.message.includes('deposit') ? 'This wallet needs test funds first' : 'Could not connect: ' + e.message); }
@@ -246,7 +298,7 @@
     const asset = meta.universe.findIndex(u => u.name === coin);
     const mid = Number((await info.allMids())[coin]);
     const px = mid * (isBuy ? 1.01 : 0.99);
-    await trader.updateLeverage({ asset, isCross: true, leverage: 2 });
+    await trader.updateLeverage({ asset, isCross: true, leverage: Number($('levR').value) });
     const orders = [{ a: asset, b: isBuy, p: fmtPx(px, asset), s: String(size), r: reduceOnly, t: { limit: { tif: 'Ioc' } } }];
     // Stop-loss / take-profit: reduce-only trigger orders on the opposite side, held by Hyperliquid
     for (const kind of ['tp', 'sl']) {
@@ -274,29 +326,112 @@
     if (cancels.length) await trader.cancel({ cancels }).catch(() => {});
   }
 
+  // ---- Order panel (Long/Short, leverage, size, TP/SL, summary) ----
+  let lastMid = 0, balance = 0, isLong = true;
+  const num = id => Number($(id).value) || 0;
+  const coinInfo = () => meta && meta.universe.find(x => x.name === coin);
+  // Coin amount for a dollar size, rounded down to what Hyperliquid accepts for this coin
+  function coinSize(usd, mid) {
+    const dec = coinInfo() ? coinInfo().szDecimals : 4, f = 10 ** dec;
+    return Math.floor(usd / mid * f) / f;
+  }
+  // Estimated liquidation if only this trade's margin backed it (real one is further away with spare balance)
+  function estLiq(mid, lev, long) {
+    const mm = 1 / (2 * ((coinInfo() && coinInfo().maxLeverage) || 50));
+    const move = Math.max(0, 1 / lev - mm);
+    return long ? mid * (1 - move) : mid * (1 + move);
+  }
+  // Leverage slider runs from 1x to this coin's maximum on Hyperliquid
+  function setLevRange() {
+    const max = (coinInfo() && coinInfo().maxLeverage) || 20;
+    $('levR').max = max;
+    if (num('levR') > max) $('levR').value = max;
+    const marks = [...new Set([1, Math.round(max / 4), Math.round(max / 2), Math.round(max * 3 / 4), max])];
+    $('levMarks').innerHTML = marks.map(m => `<span>${m}x</span>`).join('');
+  }
+  function setSide(long) {
+    isLong = long;
+    document.querySelectorAll('#side button').forEach(b => b.classList.toggle('on', (b.dataset.s === 'long') === long));
+    $('goBtn').className = 'big go ' + (long ? 'up' : 'down');
+    // keep TP/SL % the same but flip which side of the price they sit
+    syncFromPct('tp'); syncFromPct('sl'); updateOrder();
+  }
+  // TP/SL: price and % stay in step; TP is a gain, SL is a loss, for whichever side is chosen
+  const dirOf = kind => (kind === 'tp') === isLong ? 1 : -1;
+  function syncFromPct(kind) {
+    const p = num(kind + 'Pct');
+    if (!p || !lastMid) return;
+    $(kind + 'Px').value = Number((lastMid * (1 + dirOf(kind) * p / 100)).toPrecision(5));
+  }
+  function syncFromPx(kind) {
+    const x = num(kind + 'Px');
+    if (!x || !lastMid) { $(kind + 'Pct').value = ''; return; }
+    $(kind + 'Pct').value = Number((dirOf(kind) * (x / lastMid - 1) * 100).toFixed(2));
+  }
+  function updateOrder() {
+    const lev = num('levR'), usd = num('usd'), mid = lastMid;
+    $('levV').textContent = lev + 'x';
+    $('levWarn').style.display = lev >= 10 ? 'block' : 'none';
+    $('goBtn').textContent = (isLong ? 'Long ' : 'Short ') + coin;
+    $('avail').textContent = user ? money(balance) : 'Connect to see';
+    if (!mid) return;
+    $('sumSize').textContent = usd ? `${coinSize(usd, mid)} ${coin}` : '—';
+    $('sumMargin').textContent = usd ? money(usd / lev) : '—';
+    $('sumLiq').textContent = usd ? money(estLiq(mid, lev, isLong)) : '—';
+    const feeRate = 0.00045 + (feeOn ? BUILDER_FEE / 1e6 : 0);
+    $('sumFee').textContent = usd ? money(usd * feeRate) : '—';
+    // Calculator: what a move is worth in dollars and as a share of the margin put up
+    const margin = usd / lev, per1 = usd * 0.01;
+    $('sumMove').textContent = usd ? `±${money(per1)} (±${lev}% of margin)` : '—';
+    const amt = coinSize(usd, mid), use = $('tpslOn').checked;
+    const tp = use ? num('tpPx') : 0, sl = use ? num('slPx') : 0;
+    $('tpRow').style.display = tp ? 'flex' : 'none';
+    $('slRow').style.display = sl ? 'flex' : 'none';
+    if (tp) { const g = amt * (tp - mid) * (isLong ? 1 : -1); $('sumTp').textContent = `${g >= 0 ? '+' : ''}${money(g)} (${(g / margin * 100).toFixed(0)}%)`; }
+    if (sl) { const l = amt * (sl - mid) * (isLong ? 1 : -1); $('sumSl').textContent = `${money(l)} (${(l / margin * 100).toFixed(0)}%)`; }
+  }
+  // size slider = % of available balance × leverage
+  function sizeFromPct() {
+    const p = num('pctR');
+    if (balance) $('usd').value = Math.floor(balance * num('levR') * p / 100);
+    updateOrder();
+  }
+
+  $('side').onclick = e => { if (e.target.dataset.s) setSide(e.target.dataset.s === 'long'); };
+  $('levR').addEventListener('input', () => { if (num('pctR')) sizeFromPct(); else updateOrder(); });
+  $('levMarks').onclick = e => { const v = parseInt(e.target.textContent); if (v) { $('levR').value = v; $('levR').dispatchEvent(new Event('input')); } };
+  $('pctR').addEventListener('input', () => { if (!balance) { toast('Connect a funded wallet to size by %'); $('pctR').value = 0; return; } sizeFromPct(); });
+  $('pctMarks').onclick = e => { if (e.target.dataset.p == null) return; $('pctR').value = e.target.dataset.p; $('pctR').dispatchEvent(new Event('input')); };
+  $('usd').addEventListener('input', () => { $('pctR').value = balance ? Math.min(100, Math.round(num('usd') / (balance * num('levR')) * 100)) : 0; updateOrder(); });
+  $('tpslOn').onchange = () => { $('tpslBox').classList.toggle('show', $('tpslOn').checked); updateOrder(); };
+  for (const k of ['tp', 'sl']) {
+    $(k + 'Px').addEventListener('input', () => { syncFromPx(k); updateOrder(); });
+    $(k + 'Pct').addEventListener('input', () => { syncFromPct(k); updateOrder(); });
+  }
+  $('goBtn').onclick = () => trade(isLong);
+
   async function trade(isBuy) {
     if (!trader) return toast('Connect your wallet first');
-    const size = $('size').value;
-    if (!(size > 0)) return toast('Enter an amount');
-    const sl = Number($('sl').value) || 0, tp = Number($('tp').value) || 0;
     const mid = Number((await info.allMids())[coin]);
-    // For an UP trade the stop-loss sits below the price and take-profit above; DOWN is the reverse
-    if (sl && (isBuy ? sl >= mid : sl <= mid)) return toast(`Stop-loss must be ${isBuy ? 'below' : 'above'} ${money(mid)} for a ${isBuy ? 'UP' : 'DOWN'} trade`);
-    if (tp && (isBuy ? tp <= mid : tp >= mid)) return toast(`Take-profit must be ${isBuy ? 'above' : 'below'} ${money(mid)} for a ${isBuy ? 'UP' : 'DOWN'} trade`);
+    const usd = num('usd'), size = coinSize(usd, mid);
+    if (!(size > 0)) return toast('Enter a size');
+    if (usd < 10) return toast('Minimum order is $10');
+    if (balance && usd / num('levR') > balance) return toast(`Not enough balance: needs ${money(usd / num('levR'))} margin`);
+    const use = $('tpslOn').checked;
+    const tp = use ? num('tpPx') : 0, sl = use ? num('slPx') : 0;
+    if (sl && (isBuy ? sl >= mid : sl <= mid)) return toast(`Stop loss must be ${isBuy ? 'below' : 'above'} ${money(mid)} for a ${isBuy ? 'long' : 'short'}`);
+    if (tp && (isBuy ? tp <= mid : tp >= mid)) return toast(`Take profit must be ${isBuy ? 'above' : 'below'} ${money(mid)} for a ${isBuy ? 'long' : 'short'}`);
     busy(true); toast('Placing trade…');
     try {
       await send(isBuy, size, false, { sl, tp });
-      const extras = [sl && 'stop-loss', tp && 'take-profit'].filter(Boolean).join(' and ');
-      toast((isBuy ? 'You\'re betting UP ▲' : 'You\'re betting DOWN ▼') + (extras ? ' with ' + extras : ''));
-      $('sl').value = ''; $('tp').value = '';
+      const extras = [tp && 'take profit', sl && 'stop loss'].filter(Boolean).join(' and ');
+      toast((isBuy ? 'Long ' : 'Short ') + coin + ' opened' + (extras ? ' with ' + extras : ''));
       refresh();
     }
     catch (e) { toast('Trade failed: ' + e.message); }
     busy(false);
   }
 
-  $('upBtn').onclick = () => trade(true);
-  $('downBtn').onclick = () => trade(false);
   $('closeBtn').onclick = async () => {
     if (!trader) return toast('Connect your wallet first');
     const s = await info.clearinghouseState({ user });
