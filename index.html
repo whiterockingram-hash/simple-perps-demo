@@ -11,7 +11,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Simple Perps">
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script defer src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 <style>
   *{box-sizing:border-box}
   body{font-family:system-ui,-apple-system,sans-serif;background:radial-gradient(circle at top,#1b2130,#0b0d12 60%);color:#e8eaf0;max-width:440px;margin:0 auto;padding:calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));min-height:100vh}
@@ -24,7 +24,10 @@
   .tab.on{background:#3b82f6;color:#fff}
   .price{font-size:40px;font-weight:800;margin:4px 0}
   .chg{font-weight:700;font-size:14px}.pos{color:#22c55e}.neg{color:#ef4444}
-  canvas{margin-top:10px}
+  #chart{height:230px;margin-top:10px;border-radius:12px;overflow:hidden}
+  .tf{display:flex;gap:4px;margin-top:10px}
+  .tf button{flex:1;padding:6px 0;border:none;border-radius:8px;background:transparent;color:#778;font-weight:600;font-size:13px;cursor:pointer}
+  .tf button.on{background:#222837;color:#fff}
   label{font-size:13px;color:#99a}
   input{width:100%;font-size:18px;padding:12px;border-radius:12px;border:1px solid #2d3340;background:#141821;color:#fff;margin:6px 0 12px}
   .row{display:flex;gap:10px}
@@ -59,7 +62,8 @@
     <div class="tabs" id="tabs"></div>
     <div class="price" id="price">-</div>
     <span class="chg" id="chg"></span>
-    <canvas id="chart" height="110"></canvas>
+    <div id="chart"></div>
+    <div class="tf" id="tf"></div>
   </div>
 
   <div class="card">
@@ -119,13 +123,50 @@
   $('tabs').innerHTML = COINS.map(c => `<button class="tab ${c===coin?'on':''}" data-c="${c}">${c}</button>`).join('');
   $('tabs').onclick = e => { if (!e.target.dataset.c) return; coin = e.target.dataset.c;
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.c===coin));
-    if (chart) { chart.data.labels = []; chart.data.datasets[0].data = []; } refresh(); };
+    loadCandles(); refresh(); };
 
-  // Chart (skipped quietly if the chart library didn't load)
-  const chart = !window.Chart ? null : new Chart($('chart'), { type:'line',
-    data:{ labels:[], datasets:[{ data:[], borderColor:'#3b82f6', borderWidth:2, pointRadius:0, tension:.3, fill:true,
-      backgroundColor: c => { const g = c.chart.ctx.createLinearGradient(0,0,0,110); g.addColorStop(0,'rgba(59,130,246,.35)'); g.addColorStop(1,'rgba(59,130,246,0)'); return g; } }] },
-    options:{ animation:false, plugins:{legend:{display:false}}, scales:{ x:{display:false}, y:{display:false} } } });
+  // Candle chart: real price history from Hyperliquid, with the live price ticking the last candle
+  const TFS = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600 };
+  let tf = '5m', candles = [];
+  $('tf').innerHTML = Object.keys(TFS).map(k => `<button data-tf="${k}" class="${k===tf?'on':''}">${k}</button>`).join('');
+  $('tf').onclick = e => { const k = e.target.dataset.tf; if (!k) return; tf = k;
+    document.querySelectorAll('#tf button').forEach(b => b.classList.toggle('on', b.dataset.tf === tf)); loadCandles(); };
+
+  const LWC = window.LightweightCharts;
+  const chart = !LWC ? null : LWC.createChart($('chart'), {
+    autoSize: true,
+    layout: { background: { color: 'transparent' }, textColor: '#8b93a7', fontSize: 11 },
+    grid: { vertLines: { color: 'rgba(255,255,255,.04)' }, horzLines: { color: 'rgba(255,255,255,.04)' } },
+    rightPriceScale: { borderVisible: false },
+    timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false },
+    crosshair: { mode: 0 },
+    handleScroll: true, handleScale: true,
+  });
+  const series = chart && chart.addCandlestickSeries({
+    upColor: '#22c55e', downColor: '#ef4444', wickUpColor: '#22c55e', wickDownColor: '#ef4444', borderVisible: false,
+  });
+
+  async function loadCandles() {
+    if (!series) return;
+    const want = coin + tf, step = TFS[tf], end = Date.now();
+    try {
+      const rows = await post({ type:'candleSnapshot', req:{ coin, interval: tf, startTime: end - step * 1000 * 120, endTime: end } });
+      if (want !== coin + tf) return; // user switched while loading
+      candles = rows.map(r => ({ time: Math.floor(r.t / 1000), open: +r.o, high: +r.h, low: +r.l, close: +r.c }));
+      series.setData(candles);
+      chart.timeScale().fitContent();
+    } catch (e) { /* try again on the next refresh */ }
+  }
+
+  // Move the newest candle with the live price, starting a fresh candle when the time bucket rolls over
+  function tickCandle(px) {
+    if (!series || !candles.length) return;
+    const step = TFS[tf], bucket = Math.floor(Date.now() / 1000 / step) * step;
+    const last = candles[candles.length - 1];
+    if (bucket > last.time) candles.push({ time: bucket, open: last.close, high: Math.max(last.close, px), low: Math.min(last.close, px), close: px });
+    else { last.close = px; last.high = Math.max(last.high, px); last.low = Math.min(last.low, px); }
+    series.update(candles[candles.length - 1]);
+  }
 
   async function loadMeta() {
     const [m, ctxs] = await info.metaAndAssetCtxs();
@@ -141,11 +182,7 @@
       if (prev) { const pct = (px - prev) / prev * 100;
         $('chg').textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '% today';
         $('chg').className = 'chg ' + (pct >= 0 ? 'pos' : 'neg'); }
-      if (chart) {
-        chart.data.labels.push(''); chart.data.datasets[0].data.push(px);
-        if (chart.data.labels.length > 80) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); }
-        chart.update();
-      }
+      tickCandle(px);
       if (user) await loadAccount();
     } catch (e) { /* network blip, try again next tick */ }
   }
@@ -274,7 +311,8 @@
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 
   setInterval(refresh, 2000); setInterval(() => loadMeta().catch(() => {}), 60000);
-  loadMeta().catch(() => {}).finally(refresh);
+  setInterval(loadCandles, 60000);
+  loadCandles(); loadMeta().catch(() => {}).finally(refresh);
 </script>
 </body>
 </html>
