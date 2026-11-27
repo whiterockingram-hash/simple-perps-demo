@@ -103,6 +103,14 @@
   .modal h2{margin:0 0 6px;font-size:19px}
   .modal p{color:#99a;font-size:14px;margin:0 0 14px;line-height:1.45}
   .modal label.small{font-size:13px;color:#99a}
+  .dep{background:#3b82f6;color:#fff;border:none;border-radius:10px;padding:7px 12px;font-weight:700;font-size:13px;cursor:pointer;margin-left:8px}
+  .addfunds{color:#93c5fd;font-size:12px;cursor:pointer;margin-left:8px;font-weight:600}
+  .empty{background:#111827;border:1px dashed #334155;border-radius:14px;padding:14px;margin:4px 0 8px;text-align:center;color:#99a;font-size:14px;display:none}
+  .empty.show{display:block}
+  .empty button{margin-top:10px}
+  .modal .x{position:absolute;right:18px;top:18px}
+  .modal .box{position:relative}
+  .err{color:#f87171;font-size:13px;margin:-6px 0 10px;min-height:16px}
 </style>
 </head>
 <body>
@@ -125,7 +133,8 @@
   </div>
 
   <div class="card" id="acct" style="display:none">
-    <div class="poshead"><h2>Position</h2><span class="line" style="margin:0"><span>Balance&nbsp;</span><b id="bal">-</b></span></div>
+    <div class="poshead"><h2>Position</h2><span class="line" style="margin:0"><span>Balance&nbsp;</span><b id="bal">-</b><span class="addfunds" id="addFunds" style="display:none">+ Add funds</span></span></div>
+    <div class="empty" id="emptyBox">Your Simple Perps account is empty. Deposit USDC to start trading.<br><button class="big blue" id="depBtn">Deposit USDC</button></div>
     <div id="posBox"></div>
     <button class="big plain" id="closeBtn">Close position</button>
     <div class="note" id="resNote"></div>
@@ -148,7 +157,7 @@
       <button class="short" data-s="short">Short</button>
     </div>
 
-    <div class="line"><span>Available</span><b id="avail">—</b></div>
+    <div class="line"><span>Available</span><span><b id="avail">—</b><span class="addfunds" id="sheetDep" style="display:none">Deposit</span></span></div>
 
     <div class="line" style="margin-top:10px"><span>Leverage</span><b id="levV">2x</b></div>
     <input id="levR" type="range" min="1" max="20" step="1" value="2">
@@ -184,6 +193,21 @@
 
     <button class="big up go" id="goBtn">Confirm Long BTC</button>
     <div class="note" id="sheetNote">0.03% app fee · test money only, nothing here is real</div>
+  </div>
+
+  <!-- Deposit USDC from Arbitrum into Hyperliquid -->
+  <div class="modal" id="depModal">
+    <div class="box">
+      <button class="x" id="depX" aria-label="Close">✕</button>
+      <h2>Deposit USDC</h2>
+      <p id="depIntro">Moves USDC from your wallet on Arbitrum into your trading account. It arrives in about a minute.</p>
+      <div class="line"><span>In your wallet</span><b id="depWallet">—</b></div>
+      <div class="field"><input id="depAmt" type="number" inputmode="decimal" min="5" step="any" placeholder="Amount"><span>USDC</span><span class="addfunds" id="depMax">Max</span></div>
+      <div class="err" id="depErr"></div>
+      <div class="warn">Minimum 5 USDC. Hyperliquid does not credit smaller deposits, and that money is lost. You also need a little ETH on Arbitrum to pay the network fee.</div>
+      <button class="big blue" id="depGo">Deposit</button>
+      <div class="note" id="depNote"></div>
+    </div>
   </div>
 
   <!-- Where do you live? (asked once per wallet) -->
@@ -445,6 +469,8 @@
     ]);
     const here = s || main;
     $('bal').textContent = money(main.marginSummary.accountValue);
+    acctValue = Number(main.marginSummary.accountValue) || 0;
+    drawDepositPrompts();
     balance = Number(main.withdrawable ?? main.marginSummary.accountValue) || 0;
     const p = here.assetPositions.map(a => a.position).find(p => p.coin === coin);
     const trig = orders.filter(o => o.coin === coin && o.isTrigger);
@@ -524,6 +550,105 @@
     $('resChange').onclick = () => askResidence();
   }
 
+  // ---- Deposit: USDC on Arbitrum → Hyperliquid bridge ---------------------------------------
+  // Addresses from Hyperliquid's Bridge2 docs. A deposit is a plain USDC transfer to the bridge,
+  // credited to the sending wallet. Under 5 USDC is never credited, so the app refuses it.
+  const BRIDGE = {
+    mainnet: { chainId: '0xa4b1', chainName: 'Arbitrum One', rpc: 'https://arb1.arbitrum.io/rpc', explorer: 'https://arbiscan.io',
+               usdc: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', bridge: '0x2df1c51e09aecf9cacb7bc98cb1742757f163df7' },
+    testnet: { chainId: '0x66eee', chainName: 'Arbitrum Sepolia', rpc: 'https://sepolia-rollup.arbitrum.io/rpc', explorer: 'https://sepolia.arbiscan.io',
+               usdc: '0x1baAbB04529D43a73232B713C0FE471f7c7334d5', bridge: '0x08cfc1B6b2dCF36A1480b99353A354AA8AC56f89' },
+  };
+  const MIN_DEPOSIT = 5;
+  let acctValue = 0, walletUsdc = 0, depositing = false;
+
+  function drawDepositPrompts() {
+    const empty = !!user && acctValue < 0.01;
+    $('emptyBox').classList.toggle('show', empty);
+    $('addFunds').style.display = user && !empty ? '' : 'none';
+    $('sheetDep').style.display = user && balance < 10 ? '' : 'none';
+  }
+
+  const hex = n => '0x' + BigInt(n).toString(16);
+  const pad = h => h.replace(/^0x/, '').toLowerCase().padStart(64, '0');
+
+  async function useBridgeChain() {
+    const b = BRIDGE[NET];
+    try { await ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: b.chainId }] }); }
+    catch (e) {
+      if (e.code !== 4902 && !/unrecognized|not added/i.test(e.message || '')) throw e;
+      await ethereum.request({ method: 'wallet_addEthereumChain', params: [{ chainId: b.chainId, chainName: b.chainName,
+        nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: [b.rpc], blockExplorerUrls: [b.explorer] }] });
+    }
+  }
+
+  async function readWalletUsdc() {
+    const b = BRIDGE[NET];
+    const raw = await ethereum.request({ method: 'eth_call', params: [{ to: b.usdc, data: '0x70a08231' + pad(user) }, 'latest'] });
+    return Number(BigInt(raw || '0x0')) / 1e6;
+  }
+
+  async function openDeposit() {
+    if (!user) return toast('Connect your wallet first');
+    $('depErr').textContent = ''; $('depNote').textContent = ''; $('depAmt').value = '';
+    $('depIntro').textContent = `Moves USDC from your wallet on ${BRIDGE[NET].chainName} into your trading account. It arrives in about a minute.`
+      + (NET === 'testnet' ? ' Testnet uses test USDC, not real money.' : '');
+    $('depWallet').textContent = 'Checking…';
+    $('depModal').classList.add('show');
+    try {
+      await useBridgeChain();
+      walletUsdc = await readWalletUsdc();
+      $('depWallet').textContent = walletUsdc.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' USDC';
+      if (walletUsdc < MIN_DEPOSIT) $('depErr').textContent = `You need at least ${MIN_DEPOSIT} USDC on ${BRIDGE[NET].chainName} to deposit.`;
+    } catch (e) {
+      $('depWallet').textContent = '—';
+      $('depErr').textContent = e.code === 4001 ? `Switch MetaMask to ${BRIDGE[NET].chainName} to deposit.` : 'Could not read your wallet: ' + (e.message || e);
+    }
+  }
+  const closeDeposit = () => { if (!depositing) $('depModal').classList.remove('show'); };
+
+  $('depBtn').onclick = openDeposit; $('addFunds').onclick = openDeposit;
+  $('sheetDep').onclick = () => { closeSheet(); openDeposit(); };
+  $('depX').onclick = closeDeposit;
+  $('depMax').onclick = () => { $('depAmt').value = Math.floor(walletUsdc * 100) / 100; $('depAmt').dispatchEvent(new Event('input')); };
+  $('depAmt').addEventListener('input', () => {
+    const a = Number($('depAmt').value) || 0;
+    $('depErr').textContent = !a ? '' : a < MIN_DEPOSIT ? `Minimum deposit is ${MIN_DEPOSIT} USDC` : a > walletUsdc ? 'More than you have in your wallet' : '';
+  });
+
+  $('depGo').onclick = async () => {
+    const amt = Number($('depAmt').value) || 0;
+    if (amt < MIN_DEPOSIT) return $('depErr').textContent = `Minimum deposit is ${MIN_DEPOSIT} USDC`;
+    if (amt > walletUsdc) return $('depErr').textContent = 'More than you have in your wallet';
+    const b = BRIDGE[NET];
+    depositing = true; $('depGo').disabled = true; $('depErr').textContent = '';
+    try {
+      await useBridgeChain();
+      const units = BigInt(Math.round(amt * 1e6));
+      $('depNote').textContent = 'Confirm the transfer in MetaMask…';
+      // USDC transfer(bridge, amount)
+      const tx = await ethereum.request({ method: 'eth_sendTransaction',
+        params: [{ from: user, to: b.usdc, data: '0xa9059cbb' + pad(b.bridge) + pad(hex(units)) }] });
+      $('depNote').innerHTML = `Sent. Waiting for ${b.chainName}… <a href="${b.explorer}/tx/${tx}" target="_blank" rel="noopener">view</a>`;
+      for (let i = 0; i < 60; i++) {
+        const r = await ethereum.request({ method: 'eth_getTransactionReceipt', params: [tx] }).catch(() => null);
+        if (r) { if (r.status !== '0x1') throw new Error('The transfer failed on ' + b.chainName); break; }
+        await new Promise(ok => setTimeout(ok, 2000));
+      }
+      const before = acctValue;
+      $('depNote').textContent = 'Confirmed. Your balance updates in about a minute.';
+      toast(`Depositing ${amt} USDC. It will show in about a minute.`);
+      // watch for it to land
+      for (let i = 0; i < 40 && acctValue <= before; i++) { await new Promise(ok => setTimeout(ok, 5000)); await loadAccount().catch(() => {}); }
+      if (acctValue > before) { toast('Deposit arrived. You\'re ready to trade.'); $('depModal').classList.remove('show'); }
+    } catch (e) {
+      $('depErr').textContent = e.code === 4001 ? 'You cancelled the transfer in MetaMask.'
+        : /insufficient funds|gas/i.test(e.message || '') ? `Not enough ETH on ${b.chainName} to pay the network fee.`
+        : 'Deposit failed: ' + (e.message || e);
+      $('depNote').textContent = '';
+    } finally { depositing = false; $('depGo').disabled = false; }
+  };
+
   // ---- Connect -----------------------------------------------------------------------------
   $('connect').onclick = async () => {
     if (!window.ethereum) return toast('Open this page in the MetaMask app browser to connect');
@@ -563,7 +688,7 @@
       $('connect').textContent = user.slice(0,6) + '…' + user.slice(-4);
       $('acct').style.display = 'block';
       drawResidence();
-      toast('Wallet connected'); refresh();
+      toast('Wallet connected'); await loadAccount().catch(() => {}); refresh();
     } catch (e) { toast(/deposit/i.test(e.message) ? 'This wallet needs test funds first' : 'Could not connect: ' + e.message); }
   };
 
