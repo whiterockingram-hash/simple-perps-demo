@@ -95,6 +95,7 @@
   .poshead{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
   .poshead h2{font-size:16px;margin:0}
   .warn{color:#fbbf24;font-size:13px;margin:-6px 0 10px}
+  .away{color:#8b93a7;font-weight:500;font-size:12px;margin-left:4px}
   /* Residence check */
   .modal{position:fixed;inset:0;display:none;align-items:flex-end;justify-content:center;z-index:40;background:rgba(0,0,0,.6)}
   .modal.show{display:flex}
@@ -284,7 +285,7 @@
   $('chips').onclick = e => { const b = e.target.closest('.chip'); if (b) pickMarket(b.dataset.c); };
 
   function pickMarket(id) {
-    coin = id; drawChips();
+    coin = id; drawChips(); clearPositionLines(); setLine('now', 0);
     const m = M();
     $('mName').textContent = m.name + (m.group === 'stocks' ? ` · ${m.short}` : '');
     $('mTag').style.display = m.tag ? '' : 'none';
@@ -335,7 +336,35 @@
   });
   const series = chart && chart.addCandlestickSeries({
     upColor: '#22c55e', downColor: '#ef4444', wickUpColor: '#22c55e', wickDownColor: '#ef4444', borderVisible: false,
+    priceLineVisible: false, lastValueVisible: false, // replaced by the labelled "Now" line below
+    // Keep every line on screen, so you can watch the price move toward your stop and sell-at levels
+    autoscaleInfoProvider: original => {
+      const r = original();
+      const extra = Object.values(lineAt).filter(Boolean);
+      if (!r || !extra.length) return r;
+      const pr = r.priceRange;
+      const lo = Math.min(pr.minValue, ...extra), hi = Math.max(pr.maxValue, ...extra), pad = (hi - lo) * 0.04;
+      return { ...r, priceRange: { minValue: lo - pad, maxValue: hi + pad } };
+    },
   });
+
+  // ---- Lines on the chart: Now, Entry, Stop, Sell at ----
+  const LINE_STYLE = {
+    now:   { color: '#e8eaf0', title: 'Now',     lineStyle: 2, lineWidth: 1 },
+    entry: { color: '#8b93a7', title: 'Entry',   lineStyle: 1, lineWidth: 1 },
+    sl:    { color: '#ef4444', title: 'Stop',    lineStyle: 0, lineWidth: 2 },
+    tp:    { color: '#22c55e', title: 'Sell at', lineStyle: 0, lineWidth: 2 },
+  };
+  const lines = {}, lineAt = {};
+  function setLine(key, price) {
+    if (!series) return;
+    price = Number(price) || 0;
+    if (!price) { if (lines[key]) series.removePriceLine(lines[key]); delete lines[key]; delete lineAt[key]; return; }
+    if (key !== 'now') lineAt[key] = price;
+    if (lines[key]) lines[key].applyOptions({ price });
+    else lines[key] = series.createPriceLine({ price, axisLabelVisible: true, ...LINE_STYLE[key] });
+  }
+  const clearPositionLines = () => ['entry', 'sl', 'tp'].forEach(k => setLine(k, 0));
 
   async function loadCandles() {
     if (!series) return;
@@ -356,6 +385,7 @@
     if (bucket > last.time) candles.push({ time: bucket, open: last.close, high: Math.max(last.close, px), low: Math.min(last.close, px), close: px });
     else { last.close = px; last.high = Math.max(last.high, px); last.low = Math.min(last.low, px); }
     series.update(candles[candles.length - 1]);
+    setLine('now', px);
   }
 
   // ---- Market data -----------------------------------------------------------------------
@@ -420,15 +450,19 @@
     const trig = orders.filter(o => o.coin === coin && o.isTrigger);
     const slO = trig.find(o => /stop/i.test(o.orderType)), tpO = trig.find(o => /take/i.test(o.orderType));
     const label = M().group === 'stocks' ? M().name : M().short;
-    if (!p) { $('posBox').innerHTML = `<div class="stat"><span>Open position</span><b>None on ${label}</b></div>`; return; }
+    if (!p) { clearPositionLines(); $('posBox').innerHTML = `<div class="stat"><span>Open position</span><b>None on ${label}</b></div>`; return; }
+    setLine('entry', p.entryPx); setLine('sl', slO && slO.triggerPx); setLine('tp', tpO && tpO.triggerPx);
+    // how far the live price still has to travel to reach each line
+    const away = x => { if (!x || !lastMid) return ''; const d = (Number(x) - lastMid) / lastMid * 100;
+      return ` <span class="away">${Math.abs(d) < 0.005 ? 'at line' : (d > 0 ? '▲ ' : '▼ ') + Math.abs(d).toFixed(2) + '% away'}</span>`; };
     const pnl = Number(p.unrealizedPnl), dir = Number(p.szi) > 0 ? 'Long' : 'Short';
     $('posBox').innerHTML = `
       <div class="stat"><span>Open position</span><b class="${dir==='Long'?'pos':'neg'}">${dir} ${Math.abs(p.szi)} ${M().short}</b></div>
       <div class="stat"><span>Entry</span><b>${money(p.entryPx)}</b></div>
       <div class="stat"><span>Profit</span><b class="${pnl>=0?'pos':'neg'}">${pnl>=0?'+':''}${money(pnl)}</b></div>
       <div class="stat"><span>Liquidation</span><b class="neg">${p.liquidationPx ? money(p.liquidationPx) : '-'}</b></div>
-      <div class="stat"><span>Stop-loss</span><b>${slO ? money(slO.triggerPx) : 'Not set'}</b></div>
-      <div class="stat"><span>Take-profit</span><b>${tpO ? money(tpO.triggerPx) : 'Not set'}</b></div>`;
+      <div class="stat"><span>Stop-loss</span><b class="neg">${slO ? money(slO.triggerPx) + away(slO.triggerPx) : 'Not set'}</b></div>
+      <div class="stat"><span>Sell at (take-profit)</span><b class="pos">${tpO ? money(tpO.triggerPx) + away(tpO.triggerPx) : 'Not set'}</b></div>`;
   }
 
   // ---- Location & residence --------------------------------------------------------------
