@@ -1,7 +1,7 @@
 {
-  "name": "Simple Perps (Testnet)",
+  "name": "Simple Perps",
   "short_name": "Simple Perps",
-  "description": "A simple perpetual futures demo on Hyperliquid testnet. Test money only.",
+  "description": "Simple trading on Hyperliquid: crypto, stocks and pre-IPO markets.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
