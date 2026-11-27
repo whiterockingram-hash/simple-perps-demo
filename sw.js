@@ -1,6 +1,6 @@
 // Keeps the app shell available so it opens quickly from the home screen.
 // Prices always come live from the network; only the page itself is cached.
-const CACHE = 'simple-perps-v2';
+const CACHE = 'simple-perps-v3';
 const SHELL = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -14,7 +14,7 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  if (e.request.method !== 'GET' || url.origin !== location.origin) return; // live data goes straight to the network
+  if (e.request.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/')) return; // live data goes straight to the network
   // Network first, so updates show up right away; fall back to the cached copy when offline.
   e.respondWith(
     fetch(e.request).then(res => {

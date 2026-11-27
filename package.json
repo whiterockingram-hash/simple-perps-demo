@@ -1,0 +1,15 @@
+{
+  "name": "simple-perps",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Simple Perps: a simple Hyperliquid trading app",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "geoip-lite": "^1.4.10"
+  }
+}

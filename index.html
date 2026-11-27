@@ -14,37 +14,63 @@
 <script defer src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 <style>
   *{box-sizing:border-box}
-  body{font-family:system-ui,-apple-system,sans-serif;background:radial-gradient(circle at top,#1b2130,#0b0d12 60%);color:#e8eaf0;max-width:440px;margin:0 auto;padding:calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));min-height:100vh}
+  body{font-family:system-ui,-apple-system,sans-serif;background:radial-gradient(circle at top,#1b2130,#0b0d12 60%);color:#e8eaf0;max-width:440px;margin:0 auto;padding:calc(24px + env(safe-area-inset-top)) 16px calc(110px + env(safe-area-inset-bottom));min-height:100vh}
+  body.locked{overflow:hidden}
   header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
   h1{font-size:22px;margin:0}
   .badge{background:#3b2f00;color:#fbbf24;font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;letter-spacing:1px}
+  .badge.live{background:#052e16;color:#4ade80}
   .card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:20px;padding:20px;margin-bottom:14px}
-  .tabs{display:flex;gap:6px;margin-bottom:12px}
-  .tab{flex:1;padding:10px;border-radius:12px;background:#222837;border:none;color:#aab;font-weight:600;cursor:pointer}
-  .tab.on{background:#3b82f6;color:#fff}
+  .banner{background:#3a1212;border:1px solid #7f1d1d;color:#fecaca;border-radius:14px;padding:12px 14px;font-size:14px;margin-bottom:14px;display:none}
+  .banner.show{display:block}
+  .group{display:flex;background:#141821;border-radius:12px;padding:4px;margin-bottom:10px}
+  .group button{flex:1;padding:8px;border:none;border-radius:9px;background:transparent;color:#99a;font-weight:700;font-size:14px;cursor:pointer}
+  .group button.on{background:#222837;color:#fff}
+  .chips{display:flex;gap:6px;overflow-x:auto;margin:0 -20px 12px;padding:0 20px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:0 0 auto;padding:9px 14px;border-radius:12px;background:#222837;border:none;color:#aab;font-weight:600;font-size:14px;cursor:pointer;white-space:nowrap}
+  .chip.on{background:#3b82f6;color:#fff}
+  .chip small{font-size:10px;opacity:.7;margin-left:4px}
+  .mname{display:flex;align-items:center;gap:8px;font-size:15px;color:#ccd;font-weight:600}
+  .tag{font-size:10px;font-weight:700;letter-spacing:.5px;padding:3px 8px;border-radius:999px;background:#1e293b;color:#93c5fd;text-transform:uppercase}
+  .tag.pre{background:#2e1065;color:#c4b5fd}
   .price{font-size:40px;font-weight:800;margin:4px 0}
   .chg{font-weight:700;font-size:14px}.pos{color:#22c55e}.neg{color:#ef4444}
+  .mnote{font-size:12px;color:#8b93a7;margin-top:8px;line-height:1.4}
   #chart{height:230px;margin-top:10px;border-radius:12px;overflow:hidden}
   .tf{display:flex;gap:4px;margin-top:10px}
   .tf button{flex:1;padding:6px 0;border:none;border-radius:8px;background:transparent;color:#778;font-weight:600;font-size:13px;cursor:pointer}
   .tf button.on{background:#222837;color:#fff}
-  label{font-size:13px;color:#99a}
-  input{width:100%;font-size:18px;padding:12px;border-radius:12px;border:1px solid #2d3340;background:#141821;color:#fff;margin:6px 0 12px}
-  .row{display:flex;gap:10px}
+  input,select{width:100%;font-size:18px;padding:12px;border-radius:12px;border:1px solid #2d3340;background:#141821;color:#fff;margin:6px 0 12px}
+  select{font-size:16px}
   button.big{flex:1;padding:18px;font-size:17px;font-weight:700;border:none;border-radius:14px;cursor:pointer;transition:transform .1s,opacity .2s}
   button.big:active{transform:scale(.97)}
   button:disabled{opacity:.45;cursor:not-allowed}
   .up{background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff}
   .down{background:linear-gradient(135deg,#b91c1c,#ef4444);color:#fff}
   .plain{background:#2d3340;color:#fff;width:100%;margin-top:10px}
-  .wallet{width:100%;padding:14px;border:none;border-radius:14px;background:#3b82f6;color:#fff;font-weight:700;font-size:16px;cursor:pointer}
+  .blue{background:#3b82f6;color:#fff;width:100%}
+  .wallet{padding:9px 14px;border:none;border-radius:12px;background:#3b82f6;color:#fff;font-weight:700;font-size:14px;cursor:pointer}
   .stat{display:flex;justify-content:space-between;margin:6px 0;font-size:15px}
   .stat span:first-child{color:#99a}
-  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1f2937;padding:12px 18px;border-radius:12px;font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none;max-width:90%}
+  .toast{position:fixed;left:50%;bottom:calc(100px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#1f2937;padding:12px 18px;border-radius:12px;font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none;max-width:90%;z-index:50}
   .toast.show{opacity:1}
   .note{font-size:12px;color:#778;text-align:center;margin-top:8px}
-  header .wallet{width:auto;padding:9px 14px;font-size:14px;border-radius:12px}
+  .note a{color:#93c5fd;cursor:pointer}
   header .left{display:flex;align-items:center;gap:8px}
+  /* Long / Short bar pinned to the bottom of the screen */
+  .actionbar{position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(transparent,#0b0d12 35%);z-index:10}
+  .actionbar .inner{max-width:408px;margin:0 auto;display:flex;gap:10px}
+  .actionbar .soon{flex:1;text-align:center;padding:18px;border-radius:14px;background:#1b2130;color:#99a;font-weight:600;font-size:15px}
+  /* Pop-up order sheet */
+  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .2s;z-index:20}
+  .scrim.show{opacity:1;pointer-events:auto}
+  .sheet{position:fixed;left:0;right:0;bottom:0;max-width:440px;margin:0 auto;max-height:92vh;overflow-y:auto;background:#121620;border-radius:22px 22px 0 0;border:1px solid rgba(255,255,255,.08);padding:10px 20px calc(20px + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .25s ease;z-index:30}
+  .sheet.show{transform:none}
+  .grab{width:40px;height:4px;border-radius:9px;background:#3a4150;margin:0 auto 12px}
+  .shead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .shead h2{font-size:19px;margin:0}
+  .x{background:#222837;border:none;color:#ccd;width:34px;height:34px;border-radius:50%;font-size:18px;cursor:pointer}
   .side{display:flex;background:#141821;border-radius:12px;padding:4px;margin-bottom:14px}
   .side button{flex:1;padding:10px;border:none;border-radius:9px;background:transparent;color:#99a;font-weight:700;font-size:15px;cursor:pointer}
   .side button.on.long{background:#16a34a;color:#fff}.side button.on.short{background:#dc2626;color:#fff}
@@ -60,7 +86,7 @@
   .marks{display:flex;justify-content:space-between;font-size:11px;color:#667;margin-bottom:12px}
   .marks span{cursor:pointer}
   .chk{display:flex;align-items:center;gap:8px;font-size:14px;color:#ccd;margin:6px 0 8px;cursor:pointer}
-  .chk input{width:18px;height:18px;margin:0;accent-color:#3b82f6}
+  .chk input{width:18px;height:18px;margin:0;accent-color:#3b82f6;flex:0 0 auto}
   .tpsl{display:none;margin-bottom:6px}.tpsl.show{display:block}
   .tpsl .pair{display:flex;gap:8px}.tpsl .pair .field{flex:1}
   .tpsl .pair .field:last-child{flex:0 0 38%}
@@ -68,20 +94,54 @@
   .go{width:100%;margin-top:14px}
   .poshead{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
   .poshead h2{font-size:16px;margin:0}
+  .warn{color:#fbbf24;font-size:13px;margin:-6px 0 10px}
+  /* Residence check */
+  .modal{position:fixed;inset:0;display:none;align-items:flex-end;justify-content:center;z-index:40;background:rgba(0,0,0,.6)}
+  .modal.show{display:flex}
+  .modal .box{background:#121620;border:1px solid rgba(255,255,255,.08);border-radius:22px 22px 0 0;max-width:440px;width:100%;padding:22px 20px calc(22px + env(safe-area-inset-bottom))}
+  .modal h2{margin:0 0 6px;font-size:19px}
+  .modal p{color:#99a;font-size:14px;margin:0 0 14px;line-height:1.45}
+  .modal label.small{font-size:13px;color:#99a}
 </style>
 </head>
 <body>
-  <header><div class="left"><h1>Simple Perps</h1><span class="badge">TESTNET</span></div><button class="wallet" id="connect">Connect</button></header>
+  <header><div class="left"><h1>Simple Perps</h1><span class="badge" id="netBadge">TESTNET</span></div><button class="wallet" id="connect">Connect</button></header>
+
+  <div class="banner" id="banner"></div>
 
   <div class="card">
-    <div class="tabs" id="tabs"></div>
+    <div class="group" id="group">
+      <button data-g="crypto" class="on">Crypto</button>
+      <button data-g="stocks">Stocks</button>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="mname"><span id="mName">Bitcoin</span><span class="tag" id="mTag" style="display:none"></span></div>
     <div class="price" id="price">-</div>
     <span class="chg" id="chg"></span>
+    <div class="mnote" id="mNote" style="display:none"></div>
     <div id="chart"></div>
     <div class="tf" id="tf"></div>
   </div>
 
-  <div class="card">
+  <div class="card" id="acct" style="display:none">
+    <div class="poshead"><h2>Position</h2><span class="line" style="margin:0"><span>Balance&nbsp;</span><b id="bal">-</b></span></div>
+    <div id="posBox"></div>
+    <button class="big plain" id="closeBtn">Close position</button>
+    <div class="note" id="resNote"></div>
+  </div>
+
+  <!-- Long / Short bar -->
+  <div class="actionbar"><div class="inner" id="actions">
+    <button class="big up" id="openLong">Long</button>
+    <button class="big down" id="openShort">Short</button>
+  </div></div>
+
+  <!-- Pop-up order form -->
+  <div class="scrim" id="scrim"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="grab"></div>
+    <div class="shead"><h2 id="sheetTitle">Long BTC</h2><button class="x" id="sheetX" aria-label="Close">✕</button></div>
+
     <div class="side" id="side">
       <button class="long on" data-s="long">Long</button>
       <button class="short" data-s="short">Short</button>
@@ -92,9 +152,9 @@
     <div class="line" style="margin-top:10px"><span>Leverage</span><b id="levV">2x</b></div>
     <input id="levR" type="range" min="1" max="20" step="1" value="2">
     <div class="marks" id="levMarks"></div>
-    <div class="hint" id="levWarn" style="display:none;color:#fbbf24;margin:-6px 0 10px">High leverage: a small move against you can liquidate this trade.</div>
+    <div class="warn" id="levWarn" style="display:none">High leverage: a small move against you can liquidate this trade.</div>
 
-    <div class="line"><span>Size</span></div>
+    <div class="line"><span>Size</span><span id="capNote"></span></div>
     <div class="field"><input id="usd" type="number" inputmode="decimal" min="0" step="any" value="100"><span>USD</span></div>
     <input id="pctR" type="range" min="0" max="100" step="1" value="0">
     <div class="marks" id="pctMarks"><span data-p="0">0%</span><span data-p="25">25%</span><span data-p="50">50%</span><span data-p="75">75%</span><span data-p="100">100%</span></div>
@@ -121,34 +181,72 @@
       <div class="line" id="slRow" style="display:none"><span>Loss at stop loss</span><b id="sumSl" class="neg">—</b></div>
     </div>
 
-    <button class="big up go" id="goBtn">Long BTC</button>
-    <div class="note">0.03% app fee · test money only, nothing here is real</div>
+    <button class="big up go" id="goBtn">Confirm Long BTC</button>
+    <div class="note" id="sheetNote">0.03% app fee · test money only, nothing here is real</div>
   </div>
 
-  <div class="card" id="acct" style="display:none">
-    <div class="poshead"><h2>Position</h2><span class="line" style="margin:0"><span>Balance&nbsp;</span><b id="bal">-</b></span></div>
-    <div id="posBox"></div>
-    <button class="big plain" id="closeBtn">Close position</button>
+  <!-- Where do you live? (asked once per wallet) -->
+  <div class="modal" id="resModal">
+    <div class="box">
+      <h2>Where do you live?</h2>
+      <p>Simple Perps isn't available to residents of the United States, Ontario, or sanctioned regions. Please tell us where you live before trading.</p>
+      <label class="small" for="resCountry">Country of residence</label>
+      <select id="resCountry"></select>
+      <div id="resProvWrap" style="display:none">
+        <label class="small" for="resProv">Province or territory</label>
+        <select id="resProv"></select>
+      </div>
+      <label class="chk"><input type="checkbox" id="resAgree"> I confirm this is where I live, and I won't use a VPN to get around location limits.</label>
+      <button class="big blue" id="resSave" style="margin-top:8px">Continue</button>
+    </div>
   </div>
+
   <div class="toast" id="toast"></div>
 
 <script type="module">
   // Prices load with plain requests, so the page works on phones straight away.
-  // The heavier wallet tools only download when someone taps Connect Wallet.
-  const API = 'https://api.hyperliquid-testnet.xyz/info';
+  // The heavier wallet tools only download when someone taps Connect.
+  // Every trade goes through our server (/api/exchange), which checks location before passing it on.
+  const API_URL = { testnet: 'https://api.hyperliquid-testnet.xyz', mainnet: 'https://api.hyperliquid.xyz' };
+  let NET = 'testnet', serverUp = false, maxOrderUsd = 0;
   // App fee ("builder fee"): paid to this wallet on every trade placed through Simple Perps.
   // Hyperliquid counts it in tenths of a basis point, so 30 = 0.03%.
   const BUILDER = '0x96405E5Cf188526D6F0D2e8A7a403Aa1e6d11B00'.toLowerCase();
   const BUILDER_FEE = 30, BUILDER_FEE_TEXT = '0.03%';
   let feeOn = false;
-  const post = body => fetch(API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }).then(r => r.json());
-  const info = {
-    allMids: () => post({ type:'allMids' }),
-    metaAndAssetCtxs: () => post({ type:'metaAndAssetCtxs' }),
-    clearinghouseState: ({ user }) => post({ type:'clearinghouseState', user }),
-    openOrders: ({ user }) => post({ type:'frontendOpenOrders', user }),
-    maxBuilderFee: ({ user, builder }) => post({ type:'maxBuilderFee', user, builder }),
-  };
+
+  const post = (body, net = NET) => fetch(API_URL[net] + '/info', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }).then(r => r.json());
+
+  // ---- Markets -------------------------------------------------------------------------
+  // id is Hyperliquid's market name. "xyz:" and "io:" markets are run by Trade.xyz and Entropy (HIP-3).
+  // mainnetOnly markets show live mainnet prices on testnet and become tradable once we switch to mainnet.
+  const MARKETS = [
+    { id:'BTC', name:'Bitcoin', short:'BTC', group:'crypto' },
+    { id:'ETH', name:'Ethereum', short:'ETH', group:'crypto' },
+    { id:'SOL', name:'Solana', short:'SOL', group:'crypto' },
+    { id:'xyz:TSLA', name:'Tesla', short:'TSLA', group:'stocks', tag:'Stock' },
+    { id:'xyz:NVDA', name:'Nvidia', short:'NVDA', group:'stocks', tag:'Stock' },
+    { id:'xyz:AAPL', name:'Apple', short:'AAPL', group:'stocks', tag:'Stock' },
+    { id:'xyz:SPCX', name:'SpaceX', short:'SPCX', group:'stocks', tag:'Pre-IPO', mainnetOnly:true },
+    { id:'xyz:ANT', name:'Anthropic', short:'ANT', group:'stocks', tag:'Stock', mainnetOnly:true },
+    { id:'io:OAI', name:'OpenAI', short:'OAI', group:'stocks', tag:'Pre-IPO', mainnetOnly:true,
+      note:'Price follows OpenAI\'s estimated company value in $ billions.' },
+  ];
+  const dexOf = id => id.includes(':') ? id.split(':')[0] : '';
+  // Filled in by loadMeta: per market → { asset, szDecimals, maxLeverage, prevDayPx, net, tradable }
+  const mk = {};
+  let group = 'crypto', coin = 'BTC';
+  const M = () => MARKETS.find(m => m.id === coin);
+  const live = () => mk[coin] || {};
+
+  const $ = id => document.getElementById(id);
+  let user, trader, residence = '', geo = { allowed: true };
+
+  const toast = t => { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 3800); };
+  const money = n => (Number(n) < 0 ? '-$' : '$') + Math.abs(Number(n)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  const busy = on => ['goBtn','closeBtn'].forEach(id => $(id).disabled = on);
+
+  // ---- Wallet tools (loaded on Connect) -------------------------------------------------
   let hl, viem, viemAccounts, transport;
   async function loadWalletTools() {
     if (hl) return;
@@ -157,24 +255,68 @@
       import("https://esm.sh/viem"),
       import("https://esm.sh/viem/accounts"),
     ]);
-    transport = new hl.HttpTransport({ isTestnet: true });
+    const direct = new hl.HttpTransport({ isTestnet: NET === 'testnet' });
+    // Reads go straight to Hyperliquid; anything that places or changes trades goes through our server.
+    transport = {
+      isTestnet: NET === 'testnet',
+      async request(endpoint, payload, signal) {
+        if (endpoint !== 'exchange') return direct.request(endpoint, payload, signal);
+        const r = await fetch('/api/exchange', { method:'POST', signal,
+          headers:{ 'Content-Type':'application/json', 'x-residence': residence },
+          body: JSON.stringify(payload) });
+        let j; try { j = await r.json(); } catch { throw new Error('Trading server did not respond'); }
+        if (!r.ok && j?.status !== 'err') throw new Error('Trading server error');
+        return j;
+      },
+    };
   }
 
-  const COINS = ['BTC','ETH','SOL'];
-  const $ = id => document.getElementById(id);
-  let coin = 'BTC', user, trader, meta, ctx = {};
+  // ---- Market picker ---------------------------------------------------------------------
+  function drawChips() {
+    $('chips').innerHTML = MARKETS.filter(m => m.group === group).map(m =>
+      `<button class="chip ${m.id===coin?'on':''}" data-c="${m.id}">${m.group==='stocks' ? m.name : m.short}${mk[m.id] && !mk[m.id].tradable ? '<small>soon</small>' : ''}</button>`).join('');
+  }
+  $('group').onclick = e => {
+    const g = e.target.dataset.g; if (!g || g === group) return; group = g;
+    document.querySelectorAll('#group button').forEach(b => b.classList.toggle('on', b.dataset.g === group));
+    pickMarket(MARKETS.find(m => m.group === group).id);
+  };
+  $('chips').onclick = e => { const b = e.target.closest('.chip'); if (b) pickMarket(b.dataset.c); };
 
-  const toast = t => { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 3500); };
-  const money = n => (Number(n) < 0 ? '-$' : '$') + Math.abs(Number(n)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
-  const busy = on => ['goBtn','closeBtn'].forEach(id => $(id).disabled = on);
+  function pickMarket(id) {
+    coin = id; drawChips();
+    const m = M();
+    $('mName').textContent = m.name + (m.group === 'stocks' ? ` · ${m.short}` : '');
+    $('mTag').style.display = m.tag ? '' : 'none';
+    $('mTag').textContent = m.tag || '';
+    $('mTag').className = 'tag' + (m.tag === 'Pre-IPO' ? ' pre' : '');
+    $('price').textContent = '-'; $('chg').textContent = '';
+    drawMarketNote(); drawActions();
+    setLevRange(); loadCandles(); syncFromPct('tp'); syncFromPct('sl'); refresh();
+  }
 
-  // Coin tabs
-  $('tabs').innerHTML = COINS.map(c => `<button class="tab ${c===coin?'on':''}" data-c="${c}">${c}</button>`).join('');
-  $('tabs').onclick = e => { if (!e.target.dataset.c) return; coin = e.target.dataset.c;
-    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.c===coin));
-    setLevRange(); loadCandles(); syncFromPct('tp'); syncFromPct('sl'); refresh(); };
+  function drawMarketNote() {
+    const m = M(), lines = [];
+    if (m.group === 'stocks') lines.push('A price bet that tracks the stock. You don\'t own shares. Can be volatile when the stock market is closed.');
+    if (m.note) lines.push(m.note);
+    if (mk[coin] && !mk[coin].tradable) lines.push(`Live ${mk[coin].net} price. Trading opens when Simple Perps launches.`);
+    $('mNote').style.display = lines.length ? '' : 'none';
+    $('mNote').textContent = lines.join(' ');
+  }
 
-  // Candle chart: real price history from Hyperliquid, with the live price ticking the last candle
+  // The Long / Short bar at the bottom
+  function drawActions() {
+    const m = mk[coin];
+    let msg = '';
+    if (m && !m.tradable) msg = 'Trading opens at launch';
+    else if (!geo.allowed) msg = geo.reason || 'Not available in your location';
+    else if (!serverUp) msg = 'Trading is offline right now';
+    $('actions').innerHTML = msg ? `<div class="soon">${msg}</div>`
+      : `<button class="big up" id="openLong">Long</button><button class="big down" id="openShort">Short</button>`;
+    if (!msg) { $('openLong').onclick = () => openSheet(true); $('openShort').onclick = () => openSheet(false); }
+  }
+
+  // ---- Chart -----------------------------------------------------------------------------
   const TFS = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600 };
   let tf = '5m', candles = [];
   $('tf').innerHTML = Object.keys(TFS).map(k => `<button data-tf="${k}" class="${k===tf?'on':''}">${k}</button>`).join('');
@@ -199,7 +341,7 @@
     if (!series) return;
     const want = coin + tf, step = TFS[tf], end = Date.now();
     try {
-      const rows = await post({ type:'candleSnapshot', req:{ coin, interval: tf, startTime: end - step * 1000 * 120, endTime: end } });
+      const rows = await post({ type:'candleSnapshot', req:{ coin, interval: tf, startTime: end - step * 1000 * 120, endTime: end } }, live().net || NET);
       if (want !== coin + tf) return; // user switched while loading
       candles = rows.map(r => ({ time: Math.floor(r.t / 1000), open: +r.o, high: +r.h, low: +r.l, close: +r.c }));
       series.setData(candles);
@@ -207,7 +349,6 @@
     } catch (e) { /* try again on the next refresh */ }
   }
 
-  // Move the newest candle with the live price, starting a fresh candle when the time bucket rolls over
   function tickCandle(px) {
     if (!series || !candles.length) return;
     const step = TFS[tf], bucket = Math.floor(Date.now() / 1000 / step) * step;
@@ -217,18 +358,45 @@
     series.update(candles[candles.length - 1]);
   }
 
+  // ---- Market data -----------------------------------------------------------------------
+  // Hyperliquid asset numbers: main markets use their list position; builder (HIP-3) markets use
+  // 100000 + dex number × 10000 + list position.
   async function loadMeta() {
-    const [m, ctxs] = await info.metaAndAssetCtxs();
-    meta = m; m.universe.forEach((u,i) => ctx[u.name] = ctxs[i]);
-    setLevRange(); updateOrder();
+    const dexList = await post({ type:'perpDexs' });
+    const dexIndex = name => name === '' ? 0 : dexList.findIndex(d => d && d.name === name);
+    const needed = [...new Set(MARKETS.map(m => dexOf(m.id)))];
+    await Promise.all(needed.map(async dex => {
+      const di = dexIndex(dex);
+      const [meta, ctxs] = di < 0 ? [{ universe: [] }, []] : await post({ type:'metaAndAssetCtxs', ...(dex ? { dex } : {}) });
+      meta.universe.forEach((u, i) => {
+        if (!MARKETS.some(m => m.id === u.name) || u.isDelisted) return;
+        mk[u.name] = { asset: dex ? 100000 + di * 10000 + i : i, szDecimals: u.szDecimals, maxLeverage: u.maxLeverage,
+          prevDayPx: ctxs[i]?.prevDayPx, net: NET, tradable: true };
+      });
+    }));
+    // Markets that don't exist on this network yet: show mainnet prices, trading locked
+    const missing = MARKETS.filter(m => !mk[m.id] && m.mainnetOnly && NET !== 'mainnet');
+    for (const dex of [...new Set(missing.map(m => dexOf(m.id)))]) {
+      try {
+        const [meta, ctxs] = await post({ type:'metaAndAssetCtxs', dex }, 'mainnet');
+        meta.universe.forEach((u, i) => {
+          if (!missing.some(m => m.id === u.name)) return;
+          mk[u.name] = { szDecimals: u.szDecimals, maxLeverage: u.maxLeverage, prevDayPx: ctxs[i]?.prevDayPx, net: 'mainnet', tradable: false };
+        });
+      } catch (e) {}
+    }
+    drawChips(); drawMarketNote(); drawActions(); setLevRange(); updateOrder();
   }
 
   async function refresh() {
     try {
-      const mids = await info.allMids();
+      const want = coin, dex = dexOf(coin);
+      const mids = await post({ type:'allMids', ...(dex ? { dex } : {}) }, live().net || NET);
+      if (want !== coin) return;
       const px = Number(mids[coin]);
+      if (!px) return;
       $('price').textContent = money(px);
-      const prev = Number(ctx[coin]?.prevDayPx);
+      const prev = Number(live().prevDayPx);
       if (prev) { const pct = (px - prev) / prev * 100;
         $('chg').textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '% today';
         $('chg').className = 'chg ' + (pct >= 0 ? 'pos' : 'neg'); }
@@ -239,16 +407,23 @@
   }
 
   async function loadAccount() {
-    const [s, orders] = await Promise.all([info.clearinghouseState({ user }), info.openOrders({ user }).catch(() => [])]);
-    $('bal').textContent = money(s.marginSummary.accountValue);
-    balance = Number(s.withdrawable ?? s.marginSummary.accountValue) || 0;
-    const p = s.assetPositions.map(a => a.position).find(p => p.coin === coin);
+    const dex = dexOf(coin);
+    const [main, s, orders] = await Promise.all([
+      post({ type:'clearinghouseState', user }),
+      dex ? post({ type:'clearinghouseState', user, dex }) : null,
+      post({ type:'frontendOpenOrders', user, ...(dex ? { dex } : {}) }).catch(() => []),
+    ]);
+    const here = s || main;
+    $('bal').textContent = money(main.marginSummary.accountValue);
+    balance = Number(main.withdrawable ?? main.marginSummary.accountValue) || 0;
+    const p = here.assetPositions.map(a => a.position).find(p => p.coin === coin);
     const trig = orders.filter(o => o.coin === coin && o.isTrigger);
     const slO = trig.find(o => /stop/i.test(o.orderType)), tpO = trig.find(o => /take/i.test(o.orderType));
-    if (!p) { $('posBox').innerHTML = `<div class="stat"><span>Open position</span><b>None</b></div>`; return; }
+    const label = M().group === 'stocks' ? M().name : M().short;
+    if (!p) { $('posBox').innerHTML = `<div class="stat"><span>Open position</span><b>None on ${label}</b></div>`; return; }
     const pnl = Number(p.unrealizedPnl), dir = Number(p.szi) > 0 ? 'Long' : 'Short';
     $('posBox').innerHTML = `
-      <div class="stat"><span>Open position</span><b class="${dir==='Long'?'pos':'neg'}">${dir} ${Math.abs(p.szi)} ${coin}</b></div>
+      <div class="stat"><span>Open position</span><b class="${dir==='Long'?'pos':'neg'}">${dir} ${Math.abs(p.szi)} ${M().short}</b></div>
       <div class="stat"><span>Entry</span><b>${money(p.entryPx)}</b></div>
       <div class="stat"><span>Profit</span><b class="${pnl>=0?'pos':'neg'}">${pnl>=0?'+':''}${money(pnl)}</b></div>
       <div class="stat"><span>Liquidation</span><b class="neg">${p.liquidationPx ? money(p.liquidationPx) : '-'}</b></div>
@@ -256,6 +431,66 @@
       <div class="stat"><span>Take-profit</span><b>${tpO ? money(tpO.triggerPx) : 'Not set'}</b></div>`;
   }
 
+  // ---- Location & residence --------------------------------------------------------------
+  async function loadServer() {
+    try {
+      const cfg = await fetch('/api/config', { cache:'no-store' }).then(r => r.json());
+      NET = cfg.network === 'mainnet' ? 'mainnet' : 'testnet';
+      maxOrderUsd = Number(cfg.maxOrderUsd) || 0;
+      serverUp = true;
+      geo = await fetch('/api/geo', { cache:'no-store' }).then(r => r.json());
+    } catch (e) { serverUp = false; }
+    $('netBadge').textContent = NET === 'mainnet' ? 'LIVE' : 'TESTNET';
+    $('netBadge').classList.toggle('live', NET === 'mainnet');
+    $('sheetNote').textContent = `${BUILDER_FEE_TEXT} app fee` + (NET === 'testnet' ? ' · test money only, nothing here is real' : ' · real money, trade carefully');
+    $('capNote').textContent = maxOrderUsd ? `Max ${money(maxOrderUsd).replace('.00','')} per trade` : '';
+    const msg = !serverUp ? 'Trading server is offline. Prices still work, but trading is paused.'
+      : !geo.allowed ? `${geo.reason}. You can still close any open trades.` : '';
+    $('banner').textContent = msg; $('banner').classList.toggle('show', !!msg);
+    drawActions();
+  }
+
+  // ISO country codes; names come from the phone/browser in the person's own language
+  const CODES = 'AF AX AL DZ AS AD AO AI AQ AG AR AM AW AU AT AZ BS BH BD BB BY BE BZ BJ BM BT BO BQ BA BW BR IO BN BG BF BI CV KH CM CA KY CF TD CL CN CX CC CO KM CG CD CK CR CI HR CU CW CY CZ DK DJ DM DO EC EG SV GQ ER EE SZ ET FK FO FJ FI FR GF PF GA GM GE DE GH GI GR GL GD GP GU GT GG GN GW GY HT VA HN HK HU IS IN ID IR IQ IE IM IL IT JM JP JE JO KZ KE KI KP KR KW KG LA LV LB LS LR LY LI LT LU MO MG MW MY MV ML MT MH MQ MR MU YT MX FM MD MC MN ME MS MA MZ MM NA NR NP NL NC NZ NI NE NG NU NF MK MP NO OM PK PW PS PA PG PY PE PH PN PL PT PR QA RE RO RU RW BL SH KN LC MF PM VC WS SM ST SA SN RS SC SL SG SX SK SI SB SO ZA GS SS ES LK SD SR SJ SE CH SY TW TJ TZ TH TL TG TK TO TT TN TR TM TC TV UG UA AE GB US UM UY UZ VU VE VN VG VI WF EH YE ZM ZW'.split(' ');
+  const PROVINCES = { AB:'Alberta', BC:'British Columbia', MB:'Manitoba', NB:'New Brunswick', NL:'Newfoundland and Labrador', NS:'Nova Scotia',
+    NT:'Northwest Territories', NU:'Nunavut', ON:'Ontario', PE:'Prince Edward Island', QC:'Quebec', SK:'Saskatchewan', YT:'Yukon' };
+  // Same list the server enforces; the server has the final say
+  const BLOCKED = new Set(['US','CU','IR','KP','SY','PR','GU','VI','AS','MP','UM','CA-ON']);
+  const names = (() => { try { return new Intl.DisplayNames([navigator.language || 'en'], { type:'region' }); } catch { return null; } })();
+  const opts = CODES.map(c => [c, names ? names.of(c) : c]).sort((a, b) => a[1].localeCompare(b[1]));
+  $('resCountry').innerHTML = '<option value="">Choose a country…</option>' + opts.map(([c, n]) => `<option value="${c}">${n}</option>`).join('');
+  $('resProv').innerHTML = '<option value="">Choose a province…</option>' + Object.entries(PROVINCES).map(([c, n]) => `<option value="${c}">${n}</option>`).join('');
+  $('resCountry').onchange = () => { $('resProvWrap').style.display = $('resCountry').value === 'CA' ? '' : 'none'; };
+
+  let resolveResidence;
+  const askResidence = () => new Promise(ok => {
+    resolveResidence = ok;
+    const [c, p] = residence.split('-');
+    $('resCountry').value = c || ''; $('resProv').value = p || ''; $('resAgree').checked = false;
+    $('resCountry').onchange();
+    $('resModal').classList.add('show');
+  });
+  $('resSave').onclick = () => {
+    const c = $('resCountry').value, p = $('resProv').value;
+    if (!c) return toast('Choose your country');
+    if (c === 'CA' && !p) return toast('Choose your province');
+    if (!$('resAgree').checked) return toast('Please tick the box to confirm');
+    residence = c === 'CA' ? `CA-${p}` : c;
+    try { localStorage.setItem('residence:' + user, residence); } catch {}
+    $('resModal').classList.remove('show');
+    drawResidence();
+    if (isBlockedResidence()) toast('Trading isn\'t available where you live. You can still close open trades.');
+    resolveResidence && resolveResidence(residence);
+  };
+  const isBlockedResidence = () => BLOCKED.has(residence) || BLOCKED.has(residence.split('-')[0]);
+  function drawResidence() {
+    const [c, p] = residence.split('-');
+    const where = c ? (c === 'CA' && p ? `${PROVINCES[p]}, ${names ? names.of('CA') : 'CA'}` : (names ? names.of(c) : c)) : 'not set';
+    $('resNote').innerHTML = `Residence: ${where} · <a id="resChange">change</a>`;
+    $('resChange').onclick = () => askResidence();
+  }
+
+  // ---- Connect -----------------------------------------------------------------------------
   $('connect').onclick = async () => {
     if (!window.ethereum) return toast('Open this page in the MetaMask app browser to connect');
     try {
@@ -263,18 +498,21 @@
       await loadWalletTools();
       const { generatePrivateKey, privateKeyToAccount } = viemAccounts;
       [user] = await ethereum.request({ method: 'eth_requestAccounts' });
+      try { residence = localStorage.getItem('residence:' + user) || ''; } catch { residence = ''; }
+      if (!residence) await askResidence();
       const wallet = viem.createWalletClient({ account: user, transport: viem.custom(ethereum) });
       const userClient = new hl.ExchangeClient({ wallet, transport });
-      let key = localStorage.getItem('hlKey');
+      const keyName = `hlKey:${NET}`;
+      let key = localStorage.getItem(keyName) || (NET === 'testnet' ? localStorage.getItem('hlKey') : null);
       if (!key) {
         key = generatePrivateKey();
         await userClient.approveAgent({ agentAddress: privateKeyToAccount(key).address, agentName: 'simple' });
-        localStorage.setItem('hlKey', key);
+        localStorage.setItem(keyName, key);
       }
       // App fee: the user approves it once from their own wallet. If Hyperliquid won't accept it
       // (for example the fee wallet isn't funded yet), trading carries on without the fee.
       try {
-        feeOn = Number(await info.maxBuilderFee({ user, builder: BUILDER })) >= BUILDER_FEE;
+        feeOn = Number(await post({ type:'maxBuilderFee', user, builder: BUILDER })) >= BUILDER_FEE;
         if (!feeOn) {
           toast(`Approve the ${BUILDER_FEE_TEXT} app fee in your wallet`);
           await userClient.approveBuilderFee({ builder: BUILDER, maxFeeRate: BUILDER_FEE_TEXT });
@@ -282,31 +520,50 @@
         }
       } catch (e) { feeOn = false; console.log('App fee not active:', e.message); }
       trader = new hl.ExchangeClient({ wallet: privateKeyToAccount(key), transport });
+      // One balance for crypto and stocks: lets stock markets use the same funds (asked once per wallet)
+      const absKey = `dexAbs:${NET}:${user}`;
+      if (!localStorage.getItem(absKey)) {
+        try { await trader.agentEnableDexAbstraction(); localStorage.setItem(absKey, '1'); }
+        catch (e) { console.log('Shared balance not enabled:', e.message); }
+      }
       $('connect').textContent = user.slice(0,6) + '…' + user.slice(-4);
       $('acct').style.display = 'block';
+      drawResidence();
       toast('Wallet connected'); refresh();
-    } catch (e) { toast(e.message.includes('deposit') ? 'This wallet needs test funds first' : 'Could not connect: ' + e.message); }
+    } catch (e) { toast(/deposit/i.test(e.message) ? 'This wallet needs test funds first' : 'Could not connect: ' + e.message); }
   };
 
+  // ---- Placing trades ------------------------------------------------------------------------
   // Hyperliquid prices: at most 5 significant figures and (6 - size decimals) decimal places
-  function fmtPx(x, asset) {
-    const maxDec = Math.max(0, 6 - (meta.universe[asset].szDecimals || 0));
+  function fmtPx(x) {
+    const maxDec = Math.max(0, 6 - (live().szDecimals || 0));
     return String(Number(Number(Number(x).toPrecision(5)).toFixed(maxDec)));
   }
 
+  async function midNow() {
+    const dex = dexOf(coin);
+    return Number((await post({ type:'allMids', ...(dex ? { dex } : {}) }))[coin]);
+  }
+
+  async function setLeverage(lev) {
+    const asset = live().asset;
+    try { await trader.updateLeverage({ asset, isCross: true, leverage: lev }); }
+    catch (e) { await trader.updateLeverage({ asset, isCross: false, leverage: lev }); } // some stock markets are isolated-only
+  }
+
   async function send(isBuy, size, reduceOnly, tpsl = {}) {
-    const asset = meta.universe.findIndex(u => u.name === coin);
-    const mid = Number((await info.allMids())[coin]);
+    const asset = live().asset;
+    const mid = await midNow();
     const px = mid * (isBuy ? 1.01 : 0.99);
-    await trader.updateLeverage({ asset, isCross: true, leverage: Number($('levR').value) });
-    const orders = [{ a: asset, b: isBuy, p: fmtPx(px, asset), s: String(size), r: reduceOnly, t: { limit: { tif: 'Ioc' } } }];
+    if (!reduceOnly) await setLeverage(Number($('levR').value));
+    const orders = [{ a: asset, b: isBuy, p: fmtPx(px), s: String(size), r: reduceOnly, t: { limit: { tif: 'Ioc' } } }];
     // Stop-loss / take-profit: reduce-only trigger orders on the opposite side, held by Hyperliquid
     for (const kind of ['tp', 'sl']) {
       const trigger = tpsl[kind];
       if (!trigger) continue;
       const exit = trigger * (isBuy ? 0.9 : 1.1); // generous slippage so the market exit always fills
-      orders.push({ a: asset, b: !isBuy, p: fmtPx(exit, asset), s: String(size), r: true,
-        t: { trigger: { isMarket: true, triggerPx: fmtPx(trigger, asset), tpsl: kind } } });
+      orders.push({ a: asset, b: !isBuy, p: fmtPx(exit), s: String(size), r: true,
+        t: { trigger: { isMarket: true, triggerPx: fmtPx(trigger), tpsl: kind } } });
     }
     const req = { orders, grouping: orders.length > 1 ? 'normalTpsl' : 'na' };
     if (feeOn) req.builder = { b: BUILDER, f: BUILDER_FEE };
@@ -318,45 +575,39 @@
     }
   }
 
-  // Cancel any stop-loss / take-profit left on this coin (used when closing a trade)
   async function cancelTpsl() {
-    const asset = meta.universe.findIndex(u => u.name === coin);
-    const orders = await info.openOrders({ user }).catch(() => []);
+    const dex = dexOf(coin), asset = live().asset;
+    const orders = await post({ type:'frontendOpenOrders', user, ...(dex ? { dex } : {}) }).catch(() => []);
     const cancels = orders.filter(o => o.coin === coin && o.isTrigger).map(o => ({ a: asset, o: o.oid }));
     if (cancels.length) await trader.cancel({ cancels }).catch(() => {});
   }
 
-  // ---- Order panel (Long/Short, leverage, size, TP/SL, summary) ----
+  // ---- Order sheet ------------------------------------------------------------------------------
   let lastMid = 0, balance = 0, isLong = true;
   const num = id => Number($(id).value) || 0;
-  const coinInfo = () => meta && meta.universe.find(x => x.name === coin);
-  // Coin amount for a dollar size, rounded down to what Hyperliquid accepts for this coin
   function coinSize(usd, mid) {
-    const dec = coinInfo() ? coinInfo().szDecimals : 4, f = 10 ** dec;
+    const f = 10 ** (live().szDecimals ?? 4);
     return Math.floor(usd / mid * f) / f;
   }
-  // Estimated liquidation if only this trade's margin backed it (real one is further away with spare balance)
   function estLiq(mid, lev, long) {
-    const mm = 1 / (2 * ((coinInfo() && coinInfo().maxLeverage) || 50));
+    const mm = 1 / (2 * (live().maxLeverage || 50));
     const move = Math.max(0, 1 / lev - mm);
     return long ? mid * (1 - move) : mid * (1 + move);
   }
-  // Leverage slider runs from 1x to this coin's maximum on Hyperliquid
   function setLevRange() {
-    const max = (coinInfo() && coinInfo().maxLeverage) || 20;
+    const max = live().maxLeverage || 20;
     $('levR').max = max;
     if (num('levR') > max) $('levR').value = max;
-    const marks = [...new Set([1, Math.round(max / 4), Math.round(max / 2), Math.round(max * 3 / 4), max])];
+    const marks = [...new Set([1, Math.round(max / 4), Math.round(max / 2), Math.round(max * 3 / 4), max])].filter(Boolean);
     $('levMarks').innerHTML = marks.map(m => `<span>${m}x</span>`).join('');
+    updateOrder();
   }
   function setSide(long) {
     isLong = long;
     document.querySelectorAll('#side button').forEach(b => b.classList.toggle('on', (b.dataset.s === 'long') === long));
     $('goBtn').className = 'big go ' + (long ? 'up' : 'down');
-    // keep TP/SL % the same but flip which side of the price they sit
     syncFromPct('tp'); syncFromPct('sl'); updateOrder();
   }
-  // TP/SL: price and % stay in step; TP is a gain, SL is a loss, for whichever side is chosen
   const dirOf = kind => (kind === 'tp') === isLong ? 1 : -1;
   function syncFromPct(kind) {
     const p = num(kind + 'Pct');
@@ -369,18 +620,18 @@
     $(kind + 'Pct').value = Number((dirOf(kind) * (x / lastMid - 1) * 100).toFixed(2));
   }
   function updateOrder() {
-    const lev = num('levR'), usd = num('usd'), mid = lastMid;
+    const lev = num('levR'), usd = num('usd'), mid = lastMid, label = M().group === 'stocks' ? M().name : M().short;
     $('levV').textContent = lev + 'x';
     $('levWarn').style.display = lev >= 10 ? 'block' : 'none';
-    $('goBtn').textContent = (isLong ? 'Long ' : 'Short ') + coin;
+    $('sheetTitle').textContent = (isLong ? 'Long ' : 'Short ') + label;
+    $('goBtn').textContent = 'Confirm ' + (isLong ? 'Long ' : 'Short ') + label;
     $('avail').textContent = user ? money(balance) : 'Connect to see';
     if (!mid) return;
-    $('sumSize').textContent = usd ? `${coinSize(usd, mid)} ${coin}` : '—';
+    $('sumSize').textContent = usd ? `${coinSize(usd, mid)} ${M().short}` : '—';
     $('sumMargin').textContent = usd ? money(usd / lev) : '—';
     $('sumLiq').textContent = usd ? money(estLiq(mid, lev, isLong)) : '—';
     const feeRate = 0.00045 + (feeOn ? BUILDER_FEE / 1e6 : 0);
     $('sumFee').textContent = usd ? money(usd * feeRate) : '—';
-    // Calculator: what a move is worth in dollars and as a share of the margin put up
     const margin = usd / lev, per1 = usd * 0.01;
     $('sumMove').textContent = usd ? `±${money(per1)} (±${lev}% of margin)` : '—';
     const amt = coinSize(usd, mid), use = $('tpslOn').checked;
@@ -390,12 +641,21 @@
     if (tp) { const g = amt * (tp - mid) * (isLong ? 1 : -1); $('sumTp').textContent = `${g >= 0 ? '+' : ''}${money(g)} (${(g / margin * 100).toFixed(0)}%)`; }
     if (sl) { const l = amt * (sl - mid) * (isLong ? 1 : -1); $('sumSl').textContent = `${money(l)} (${(l / margin * 100).toFixed(0)}%)`; }
   }
-  // size slider = % of available balance × leverage
   function sizeFromPct() {
     const p = num('pctR');
     if (balance) $('usd').value = Math.floor(balance * num('levR') * p / 100);
     updateOrder();
   }
+
+  function openSheet(long) {
+    if (!trader) return toast('Connect your wallet first');
+    if (isBlockedResidence()) return toast('Trading isn\'t available where you live');
+    setSide(long);
+    $('scrim').classList.add('show'); $('sheet').classList.add('show'); document.body.classList.add('locked');
+  }
+  function closeSheet() { $('scrim').classList.remove('show'); $('sheet').classList.remove('show'); document.body.classList.remove('locked'); }
+  $('scrim').onclick = closeSheet; $('sheetX').onclick = closeSheet;
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
 
   $('side').onclick = e => { if (e.target.dataset.s) setSide(e.target.dataset.s === 'long'); };
   $('levR').addEventListener('input', () => { if (num('pctR')) sizeFromPct(); else updateOrder(); });
@@ -412,10 +672,12 @@
 
   async function trade(isBuy) {
     if (!trader) return toast('Connect your wallet first');
-    const mid = Number((await info.allMids())[coin]);
+    if (!live().tradable) return toast('This market opens at launch');
+    const mid = await midNow();
     const usd = num('usd'), size = coinSize(usd, mid);
     if (!(size > 0)) return toast('Enter a size');
     if (usd < 10) return toast('Minimum order is $10');
+    if (maxOrderUsd && usd > maxOrderUsd) return toast(`Max trade size is ${money(maxOrderUsd)} for now`);
     if (balance && usd / num('levR') > balance) return toast(`Not enough balance: needs ${money(usd / num('levR'))} margin`);
     const use = $('tpslOn').checked;
     const tp = use ? num('tpPx') : 0, sl = use ? num('slPx') : 0;
@@ -425,18 +687,20 @@
     try {
       await send(isBuy, size, false, { sl, tp });
       const extras = [tp && 'take profit', sl && 'stop loss'].filter(Boolean).join(' and ');
-      toast((isBuy ? 'Long ' : 'Short ') + coin + ' opened' + (extras ? ' with ' + extras : ''));
-      refresh();
+      toast((isBuy ? 'Long ' : 'Short ') + M().name + ' opened' + (extras ? ' with ' + extras : ''));
+      closeSheet(); refresh();
     }
     catch (e) { toast('Trade failed: ' + e.message); }
     busy(false);
   }
 
+  // Closing always works, even for blocked locations, so nobody is stuck in a trade
   $('closeBtn').onclick = async () => {
     if (!trader) return toast('Connect your wallet first');
-    const s = await info.clearinghouseState({ user });
+    const dex = dexOf(coin);
+    const s = await post({ type:'clearinghouseState', user, ...(dex ? { dex } : {}) });
     const p = s.assetPositions.map(a => a.position).find(p => p.coin === coin);
-    if (!p) return toast('No open trade on ' + coin);
+    if (!p) return toast('No open trade on ' + M().name);
     busy(true);
     try { await send(Number(p.szi) < 0, Math.abs(p.szi), true); await cancelTpsl(); toast('Trade closed'); refresh(); }
     catch (e) { toast('Close failed: ' + e.message); }
@@ -445,9 +709,13 @@
 
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 
+  // Start up: server settings first (network, location), then markets and prices
+  await loadServer();
+  drawChips(); pickMarket(coin);
+  loadMeta().catch(() => {}).finally(refresh);
   setInterval(refresh, 2000); setInterval(() => loadMeta().catch(() => {}), 60000);
   setInterval(loadCandles, 60000);
-  loadCandles(); loadMeta().catch(() => {}).finally(refresh);
+  setInterval(() => loadServer().catch(() => {}), 120000); // re-check location every couple of minutes
 </script>
 </body>
 </html>
