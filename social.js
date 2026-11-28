@@ -14,6 +14,7 @@
 // Settings (Render → Environment): DATABASE_URL, COPY_KEY_SECRET (64 hex chars).
 
 const crypto = require('crypto');
+const { createCommunity, sessionMessage } = require('./community');
 
 const COPY_LEVERAGE_MAX = 10;          // never copy at more than 10x, whatever the leader uses
 const MIN_ORDER_USD = 10;              // Hyperliquid's minimum order value
@@ -154,6 +155,15 @@ function createSocial(opts) {
     pool.on('error', e => log('db error', e.message));
   }
   const q = (text, params) => pool.query(text, params).then(r => r.rows);
+  // Phone alerts need VAPID keys (VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY); otherwise alerts stay off
+  let push = opts.push ?? null;
+  const vapidPublic = process.env.VAPID_PUBLIC_KEY || '';
+  if (!push && vapidPublic && process.env.VAPID_PRIVATE_KEY) {
+    push = require('web-push');
+    push.setVapidDetails('https://simpleperps.com', vapidPublic, process.env.VAPID_PRIVATE_KEY);
+  }
+  const admins = (opts.admins ?? (process.env.ADMIN_WALLETS || builder || '').split(',')).map(x => x.trim()).filter(Boolean);
+  const community = enabled ? createCommunity({ q, hl, log, push, admins }) : null;
 
   async function init() {
     if (!enabled) return;
@@ -180,6 +190,7 @@ function createSocial(opts) {
         opened_at TIMESTAMPTZ NOT NULL DEFAULT now(), closed_at TIMESTAMPTZ);
       CREATE INDEX IF NOT EXISTS copies_open ON copies(follow_id) WHERE status = 'open';
     `);
+    await community.init();
   }
 
   // ---- signature check (EIP-191 personal_sign) ----
@@ -189,6 +200,13 @@ function createSocial(opts) {
     const { verifyMessage } = await import('viem');
     const ok = await verifyMessage({ address: wallet, message, signature }).catch(() => false);
     return ok ? '' : 'Signature does not match this wallet';
+  }
+
+  // A request is authorised by a fresh wallet signature, or by a signed-in session for that wallet
+  async function authorise(req, wallet, message, b) {
+    const sw = await community.sessionWallet(req);
+    if (sw && sw === wallet) return '';
+    return verifySigned(wallet, message, b.sig, b.ts);
   }
 
   async function locationOk(req, residence) {
@@ -208,22 +226,34 @@ function createSocial(opts) {
         (SELECT count(*) FROM follows f WHERE f.leader_id = l.id AND f.status = 'active')::int AS followers
       FROM leaders l WHERE l.active ORDER BY l.id`);
     const mids = await hl.mids();
-    const trades = [], traders = [];
+    const meta = hl.meta();
+    const trades = [], traders = [], snapshot = [];
     for (const L of leaders) {
       try {
         const [st, trig] = await Promise.all([hl.state(L.wallet), hl.triggers(L.wallet)]);
         let pnl = 0, margin = 0;
+        const snap = { leaderId: L.id, nickname: L.nickname, positions: [] };
         for (const p of st.positions) {
           const t = trig.filter(o => o.coin === p.coin);
           const tp = t.find(o => o.kind === 'tp'), sl = t.find(o => o.kind === 'sl');
           pnl += p.unrealizedPnl; margin += p.marginUsed;
-          trades.push({ leaderId: L.id, nickname: L.nickname, followers: L.followers, coin: p.coin, side: sideOf(p.szi),
+          const row = { leaderId: L.id, nickname: L.nickname, followers: L.followers, coin: p.coin, side: sideOf(p.szi),
             lev: p.lev, sizeUsd: Math.abs(p.szi) * (mids[p.coin] || p.entryPx), entryPx: p.entryPx, markPx: mids[p.coin] || null,
-            pnl: p.unrealizedPnl, roe: p.roe * 100, tp: tp ? tp.px : null, sl: sl ? sl.px : null });
+            pnl: p.unrealizedPnl, roe: p.roe * 100, tp: tp ? tp.px : null, sl: sl ? sl.px : null };
+          trades.push(row);
+          snap.positions.push({ coin: row.coin, side: row.side, lev: row.lev, maxLev: meta[row.coin]?.maxLeverage || 20,
+            entryPx: row.entryPx, markPx: row.markPx, roe: row.roe, pnl: row.pnl, sizeUsd: row.sizeUsd });
         }
+        snapshot.push(snap);
         traders.push({ id: L.id, nickname: L.nickname, followers: L.followers, openTrades: st.positions.length,
           pnl, roe: margin ? pnl / margin * 100 : 0 });
       } catch (e) { log('leaderboard read failed', L.id, e.message); }
+    }
+    // Trade history (for flairs, profiles, hall of fame and alerts)
+    const tracked = await community.track(snapshot).catch(e => { log('track failed', e.message); return new Map(); });
+    for (const t of trades) {
+      const r = tracked.get(`${t.leaderId}|${t.coin}`);
+      if (r) { t.tradeId = r.id; t.openedAt = r.opened_at; t.row = { ...r, maxLev: meta[t.coin]?.maxLeverage || 20 }; }
     }
     trades.sort((a, b) => b.roe - a.roe);
     traders.sort((a, b) => b.roe - a.roe);
@@ -234,11 +264,11 @@ function createSocial(opts) {
   async function joinBoard(req, b) {
     const wallet = String(b.wallet || '').toLowerCase(), nickname = String(b.nickname || '').trim();
     if (!NICK_RE.test(nickname)) return [400, 'Nickname: 2–20 letters, numbers, spaces, _ . -'];
-    const err = await verifySigned(wallet, messages.join(wallet, nickname, b.ts), b.sig, b.ts);
+    const err = await authorise(req, wallet, messages.join(wallet, nickname, b.ts), b);
     if (err) return [403, err];
     const { error } = await locationOk(req, b.residence);
     if (error) return [403, error];
-    const taken = await q(`SELECT 1 FROM leaders WHERE lower(nickname) = lower($1) AND wallet <> $2 AND active`, [nickname, wallet]);
+    const taken = await q(`SELECT 1 FROM leaders WHERE lower(nickname) = lower($1) AND wallet <> $2`, [nickname, wallet]);
     if (taken.length) return [409, 'That nickname is taken'];
     await q(`INSERT INTO leaders (wallet, nickname) VALUES ($1, $2)
              ON CONFLICT (wallet) DO UPDATE SET nickname = EXCLUDED.nickname, active = TRUE`, [wallet, nickname]);
@@ -246,15 +276,28 @@ function createSocial(opts) {
     return [200, 'ok'];
   }
 
-  async function leaveBoard(b) {
+  async function leaveBoard(req, b) {
     const wallet = String(b.wallet || '').toLowerCase();
-    const err = await verifySigned(wallet, messages.leave(wallet, b.ts), b.sig, b.ts);
+    const err = await authorise(req, wallet, messages.leave(wallet, b.ts), b);
     if (err) return [403, err];
     const [L] = await q(`UPDATE leaders SET active = FALSE WHERE wallet = $1 RETURNING id`, [wallet]);
+    if (L) await community.closeAllFor(L.id);
     if (L) await q(`UPDATE follows SET status = 'paused', status_reason = 'Trader left the leaderboard', updated_at = now()
                     WHERE leader_id = $1 AND status = 'active'`, [L.id]);
     boardCache.at = 0;
     return [200, 'ok'];
+  }
+
+  // A nickname lets someone comment without sharing their trades on the board
+  async function setNickname(wallet, nickname) {
+    nickname = String(nickname || '').trim();
+    if (!NICK_RE.test(nickname)) return [400, 'Nickname: 2–20 letters, numbers, spaces, _ . -'];
+    const taken = await q(`SELECT 1 FROM leaders WHERE lower(nickname) = lower($1) AND wallet <> $2`, [nickname, wallet]);
+    if (taken.length) return [409, 'That nickname is taken'];
+    await q(`INSERT INTO leaders (wallet, nickname, active) VALUES ($1, $2, FALSE)
+             ON CONFLICT (wallet) DO UPDATE SET nickname = EXCLUDED.nickname`, [wallet, nickname]);
+    boardCache.at = 0;
+    return [200, { nickname }];
   }
 
   // ---- follows ----
@@ -326,9 +369,9 @@ function createSocial(opts) {
     return f;
   }
 
-  async function stopFollow(b) {
+  async function stopFollow(req, b) {
     const wallet = String(b.wallet || '').toLowerCase(), closeTrades = !!b.closeTrades;
-    const err = await verifySigned(wallet, messages.stop(wallet, b.followId, closeTrades, b.ts), b.sig, b.ts);
+    const err = await authorise(req, wallet, messages.stop(wallet, b.followId, closeTrades, b.ts), b);
     if (err) return [403, err];
     const f = await ownFollow(wallet, b.followId);
     if (!f) return [404, 'Follow not found'];
@@ -349,7 +392,7 @@ function createSocial(opts) {
 
   async function renewFollow(req, b) {
     const wallet = String(b.wallet || '').toLowerCase();
-    const err = await verifySigned(wallet, messages.renew(wallet, b.followId, b.ts), b.sig, b.ts);
+    const err = await authorise(req, wallet, messages.renew(wallet, b.followId, b.ts), b);
     if (err) return [403, err];
     const f = await ownFollow(wallet, b.followId);
     if (!f || f.status === 'stopped') return [404, 'Follow not found'];
@@ -372,7 +415,8 @@ function createSocial(opts) {
         (SELECT json_agg(json_build_object('coin', c.coin, 'side', c.side, 'size', c.follower_sz, 'entryPx', c.entry_px))
            FROM copies c WHERE c.follow_id = f.id AND c.status = 'open') AS copies
       FROM follows f JOIN leaders l ON l.id = f.leader_id WHERE f.follower = $1 AND f.status <> 'stopped' ORDER BY f.id`, [wallet]);
-    return { leader: leader?.active ? { id: leader.id, nickname: leader.nickname } : null, follows, copyEnabled };
+    return { leader: leader?.active ? { id: leader.id, nickname: leader.nickname } : null,
+      nickname: leader?.nickname || null, follows, copyEnabled, alerts: !!push };
   }
 
   // ---- the copy engine ----
@@ -425,7 +469,7 @@ function createSocial(opts) {
     }
   }
 
-  let ticking = false, timer = null;
+  let ticking = false, timer = null, boardTimer = null;
   async function tick() {
     if (ticking || !copyEnabled) return;
     ticking = true;
@@ -480,6 +524,7 @@ function createSocial(opts) {
     await init();
     await hl.ready();
     if (copyEnabled) timer = setInterval(tick, TICK_MS);
+    boardTimer = setInterval(() => leaderboard().catch(e => log('board refresh failed', e.message)), 20000);
     log(`Leaderboard on${copyEnabled ? ', auto-follow on' : ', auto-follow off (no COPY_KEY_SECRET)'}`);
   }
 
@@ -488,22 +533,44 @@ function createSocial(opts) {
     if (!url.pathname.startsWith('/api/social/')) return false;
     if (!enabled) { send(res, 503, { error: 'Leaderboard is coming soon' }); return true; }
     const p = url.pathname.slice('/api/social/'.length);
-    const reply = ([code, msg]) => send(res, code, code === 200 ? { ok: true } : { error: msg });
-    if (p === 'leaderboard' && req.method === 'GET') send(res, 200, await leaderboard());
-    else if (p === 'me' && req.method === 'GET') send(res, 200, await me(url.searchParams.get('wallet')));
-    else if (req.method === 'POST') {
-      const b = await readJson(req);
-      if (p === 'join') reply(await joinBoard(req, b));
-      else if (p === 'leave') reply(await leaveBoard(b));
-      else if (p === 'follow') reply(await startFollow(req, b));
-      else if (p === 'stop') reply(await stopFollow(b));
-      else if (p === 'renew') reply(await renewFollow(req, b));
+    const reply = ([code, msg]) => send(res, code, code === 200 ? (typeof msg === 'object' ? { ok: true, ...msg } : { ok: true }) : { error: msg });
+    const viewer = await community.sessionWallet(req);
+    const needViewer = () => { if (!viewer) { send(res, 401, { error: 'Sign in first' }); return false; } return true; };
+    if (req.method === 'GET') {
+      if (p === 'leaderboard') send(res, 200, await community.decorate(await leaderboard(), viewer));
+      else if (p === 'me') send(res, 200, await me(url.searchParams.get('wallet')));
+      else if (p === 'profile') reply(await community.profile(url.searchParams.get('id'), viewer));
+      else if (p === 'posts') reply(await community.listPosts(url.searchParams.get('tradeId'), viewer));
+      else if (p === 'push-key') send(res, 200, { key: push ? (opts.vapidPublic || vapidPublic) : null });
       else send(res, 404, { error: 'Not found' });
-    } else send(res, 404, { error: 'Not found' });
+      return true;
+    }
+    if (req.method !== 'POST') { send(res, 404, { error: 'Not found' }); return true; }
+    const b = await readJson(req);
+    if (p === 'session') {
+      const wallet = String(b.wallet || '').toLowerCase();
+      const err = await verifySigned(wallet, sessionMessage(wallet, b.ts), b.sig, b.ts);
+      if (err) return send(res, 403, { error: err }), true;
+      send(res, 200, { token: await community.createSession(wallet), nickname: (await q(`SELECT nickname FROM leaders WHERE wallet = $1`, [wallet]))[0]?.nickname || null });
+    }
+    else if (p === 'logout') { await community.endSession(req); send(res, 200, { ok: true }); }
+    else if (p === 'join') reply(await joinBoard(req, b));
+    else if (p === 'leave') reply(await leaveBoard(req, b));
+    else if (p === 'follow') reply(await startFollow(req, b));
+    else if (p === 'stop') reply(await stopFollow(req, b));
+    else if (p === 'renew') reply(await renewFollow(req, b));
+    else if (p === 'nickname') { if (needViewer()) reply(await setNickname(viewer, b.nickname)); }
+    else if (p === 'react') { if (needViewer()) reply(await community.react(viewer, b.tradeId, b.kind)); }
+    else if (p === 'post') { if (needViewer()) reply(await community.addPost(viewer, b)); }
+    else if (p === 'post-delete') { if (needViewer()) reply(await community.deletePost(viewer, b.postId)); }
+    else if (p === 'report') { if (needViewer()) reply(await community.reportPost(viewer, b.postId)); }
+    else if (p === 'push-sub') { if (needViewer()) reply(await community.savePush(viewer, b.subscription)); }
+    else if (p === 'watch') { if (needViewer()) reply(await community.watch(viewer, b.leaderId, !!b.on)); }
+    else send(res, 404, { error: 'Not found' });
     return true;
   }
 
-  return { start, route, tick, init, query: q, end: () => { clearInterval(timer); return pool && pool.end(); } };
+  return { start, route, tick, init, query: q, end: () => { clearInterval(timer); clearInterval(boardTimer); return pool && pool.end(); }, leaderboard, community };
 }
 
 // ---- Hyperliquid access for the server ------------------------------------------------------------

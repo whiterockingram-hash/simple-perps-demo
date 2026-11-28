@@ -138,6 +138,35 @@
   .status{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:#052e16;color:#4ade80}
   .status.paused{background:#3b2f00;color:#fbbf24}
   .muted{color:#8b93a7;font-size:14px;line-height:1.45}
+  .modal .box{max-height:90vh;overflow-y:auto}
+  .nick{cursor:pointer}.nick:hover{text-decoration:underline}
+  .flairs{display:inline-flex;flex-wrap:wrap;gap:4px;margin-left:6px;vertical-align:1px}
+  .flair{font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;background:#1e1b4b;color:#c7d2fe;white-space:nowrap}
+  .rx{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}
+  .rx button{border:1px solid #2d3340;background:#141821;color:#e8eaf0;border-radius:999px;padding:4px 9px;font-size:13px;cursor:pointer;line-height:1.2}
+  .rx button.on{border-color:#3b82f6;background:#172554}
+  .rx button b{font-weight:700;font-size:12px;margin-left:3px;color:#cbd5e1}
+  .rx .sp{flex:1}
+  .rx .ic{border:none;background:transparent;color:#99a;font-size:13px;padding:4px 6px}
+  .fame{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .fame div{background:#141821;border-radius:14px;padding:10px;cursor:pointer}
+  .fame small{display:block;color:#8b93a7;font-size:11px;font-weight:700;letter-spacing:.3px;text-transform:uppercase}
+  .fame b{display:block;font-size:14px;margin-top:4px}
+  .fame span{font-size:13px;font-weight:700}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+  .stats div{background:#141821;border-radius:12px;padding:8px;text-align:center}
+  .stats small{display:block;color:#8b93a7;font-size:11px}
+  .stats b{font-size:16px}
+  .hist{display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,.06);padding:9px 0;font-size:14px}
+  .post{border-top:1px solid rgba(255,255,255,.06);padding:10px 0}
+  .post .ph{display:flex;justify-content:space-between;font-size:12px;color:#8b93a7}
+  .post .ph b{color:#e8eaf0}
+  .post p{margin:4px 0 0;white-space:pre-wrap;word-wrap:break-word;font-size:14px;line-height:1.45;color:#e8eaf0}
+  .post.dd{background:#141c2e;border:1px solid #1e3a8a;border-radius:12px;padding:10px 12px;margin-bottom:8px}
+  .post .act{font-size:11px;color:#667;margin-left:8px;cursor:pointer}
+  textarea{width:100%;font:inherit;font-size:15px;padding:10px 12px;border-radius:12px;border:1px solid #2d3340;background:#141821;color:#fff;resize:vertical;min-height:70px;margin:6px 0}
+  .bell{background:#222837;border:none;border-radius:10px;padding:8px 12px;color:#e8eaf0;font-weight:700;font-size:13px;cursor:pointer}
+  .bell.on{background:#3b2f00;color:#fbbf24}
 </style>
 </head>
 <body>
@@ -170,11 +199,16 @@
     <div class="empty" id="emptyBox">Your Simple Perps account is empty. Deposit USDC to start trading.<br><button class="big blue" id="depBtn">Deposit USDC</button></div>
     <div id="posBox"></div>
     <button class="big plain" id="closeBtn">Close position</button>
+    <button class="big plain" id="sharePosBtn" style="display:none">📸 Share this trade</button>
     <div class="note" id="resNote"></div>
   </div>
   </div>
 
   <div id="boardView" style="display:none">
+    <div class="card" id="fameCard" style="display:none">
+      <div class="poshead"><h2>🏆 Hall of fame · this week</h2></div>
+      <div class="fame" id="fame"></div>
+    </div>
     <div class="card">
       <div class="poshead"><h2>Top open trades</h2><span class="addfunds" id="boardRefresh">Refresh</span></div>
       <div class="mnote" style="margin:0 0 6px">Live trades from people who chose to share them. Not advice. Copying can lose money.</div>
@@ -245,17 +279,52 @@
     <div class="note" id="sheetNote">0.03% app fee · test money only, nothing here is real</div>
   </div>
 
+  <!-- Pick a nickname (to comment without sharing trades) -->
+  <div class="modal" id="nickModal">
+    <div class="box">
+      <button class="x" id="nickX" aria-label="Close">✕</button>
+      <h2>Pick a nickname</h2>
+      <p>This is how you show up in comments. Your wallet address stays hidden.</p>
+      <div class="field"><input id="nick2" maxlength="20" placeholder="2–20 letters or numbers"></div>
+      <div class="err" id="nickErr"></div>
+      <button class="big blue" id="nickGo" style="width:100%">Save</button>
+    </div>
+  </div>
+
+  <!-- Trader profile -->
+  <div class="modal" id="profModal">
+    <div class="box">
+      <button class="x" id="profX" aria-label="Close">✕</button>
+      <div id="profBody"><div class="muted">Loading…</div></div>
+    </div>
+  </div>
+
+  <!-- Comments and DD for one trade -->
+  <div class="modal" id="threadModal">
+    <div class="box">
+      <button class="x" id="threadX" aria-label="Close">✕</button>
+      <h2 id="threadTitle">Comments</h2>
+      <div id="threadPosts"><div class="muted">Loading…</div></div>
+      <div id="composer">
+        <label class="chk" id="ddWrap" style="display:none"><input type="checkbox" id="ddOn"> Post as DD (why I'm in this trade, pinned at the top)</label>
+        <textarea id="postBody" maxlength="2000" placeholder="Say something… no links, no addresses, keep it civil"></textarea>
+        <div class="err" id="postErr"></div>
+        <button class="big blue" id="postGo" style="width:100%">Post</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Join the leaderboard -->
   <div class="modal" id="joinModal">
     <div class="box">
       <button class="x" id="joinX" aria-label="Close">✕</button>
       <h2>Join the leaderboard</h2>
-      <p>Your open trades show under a nickname. Your wallet address stays hidden. Others can copy your trades or follow you automatically. You can leave anytime.</p>
+      <p>Your open trades show under a nickname. Your wallet address stays hidden. Others can react, comment, copy your trades or follow you automatically. You can leave anytime.</p>
       <label class="small" for="nick">Nickname</label>
       <div class="field"><input id="nick" maxlength="20" placeholder="2–20 letters or numbers"></div>
       <div class="err" id="joinErr"></div>
-      <button class="big blue" id="joinGo" style="width:100%;margin-top:6px">Sign and join</button>
-      <div class="note">MetaMask asks you to sign a message. It's free and moves no money.</div>
+      <button class="big blue" id="joinGo" style="width:100%;margin-top:6px">Join</button>
+      <div class="note">If you're not signed in yet, MetaMask asks you to sign once. It's free and moves no money.</div>
     </div>
   </div>
 
@@ -360,7 +429,7 @@
   const live = () => mk[coin] || {};
 
   const $ = id => document.getElementById(id);
-  let user, trader, userClient, residence = '', geo = { allowed: true };
+  let user, trader, userClient, curPos = null, residence = '', geo = { allowed: true };
 
   const toast = t => { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 3800); };
   const money = n => (Number(n) < 0 ? '-$' : '$') + Math.abs(Number(n)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -571,6 +640,9 @@
     const trig = orders.filter(o => o.coin === coin && o.isTrigger);
     const slO = trig.find(o => /stop/i.test(o.orderType)), tpO = trig.find(o => /take/i.test(o.orderType));
     const label = M().group === 'stocks' ? M().name : M().short;
+    curPos = p ? { coin, side: Number(p.szi) > 0 ? 'long' : 'short', lev: Number(p.leverage?.value) || 1, roe: Number(p.returnOnEquity) * 100,
+      entryPx: Number(p.entryPx), markPx: lastMid } : null;
+    $('sharePosBtn').style.display = p ? '' : 'none';
     if (!p) { clearPositionLines(); $('posBox').innerHTML = `<div class="stat"><span>Open position</span><b>None on ${label}</b></div>`; return; }
     setLine('entry', p.entryPx); setLine('sl', slO && slO.triggerPx); setLine('tp', tpO && tpO.triggerPx);
     // how far the live price still has to travel to reach each line
@@ -967,12 +1039,33 @@
   const mOf = coin => MARKETS.find(m => m.id === coin) || { name: coin, short: coin, group: 'crypto' };
   const label = coin => { const m = mOf(coin); return m.group === 'stocks' ? m.name : m.short; };
   const pctTxt = n => (n >= 0 ? '+' : '') + Number(n).toFixed(1) + '%';
-  const api = async (path, body) => {
-    const r = await fetch('/api/social/' + path, body ? { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) } : { cache:'no-store' });
+  // Signed-in session: sign once in MetaMask, then reactions, comments and settings need no pop-ups
+  let session = '';
+  const sessKey = () => 'sess:' + (user || '').toLowerCase();
+  const api = async (path, body, retried) => {
+    const headers = { ...(session ? { 'x-session': session } : {}), ...(body ? { 'Content-Type':'application/json' } : {}) };
+    const r = await fetch('/api/social/' + path, body ? { method:'POST', headers, body: JSON.stringify(body) } : { cache:'no-store', headers });
     const j = await r.json().catch(() => ({}));
+    if (r.status === 401 && body && !retried && user) { session = ''; try { localStorage.removeItem(sessKey()); } catch {} await ensureSession(); return api(path, body, true); }
     if (!r.ok) throw new Error(j.error || 'Something went wrong');
     return j;
   };
+  async function ensureSession() {
+    if (!user) throw new Error('Connect your wallet first');
+    if (session) return session;
+    try { session = localStorage.getItem(sessKey()) || ''; } catch {}
+    if (session) return session;
+    const ts = Date.now(), w = (user || '').toLowerCase();
+    toast('Sign in once in MetaMask. It\'s free.');
+    const sig = await signText(`Simple Perps\nSign in\nWallet: ${w}\nTime: ${ts}`);
+    const r = await fetch('/api/social/session', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ wallet: w, ts, sig }) }).then(x => x.json());
+    if (!r.token) throw new Error(r.error || 'Sign-in failed');
+    session = r.token;
+    try { localStorage.setItem(sessKey(), session); } catch {}
+    if (r.nickname) mine.nickname = r.nickname;
+    return session;
+  }
+  const authErr = e => e?.code === 4001 ? 'You cancelled in MetaMask' : (e?.message || 'Something went wrong');
   // Same wording the server checks; signing is free and moves no money
   const MSG = {
     join: (w, n, ts) => `Simple Perps leaderboard\nShow my open trades as: ${n}\nWallet: ${w}\nTime: ${ts}`,
@@ -998,19 +1091,40 @@
   $('nav').onclick = e => { if (e.target.dataset.v) setView(e.target.dataset.v); };
   $('boardRefresh').onclick = () => loadBoard(true);
 
+  const RX = [['diamond','💎🙌'], ['rocket','🚀'], ['ape','🦍'], ['tendies','🍗'], ['paper','🧻'], ['bear','🌈🐻']];
+  const FLAIR = { diamond_hands:'💎🙌 Diamond Hands', paper_hands:'🧻 Paper Hands', yolo:'🎰 YOLO', tendies:'🍗 Tendie Chef', king:"👑 Week's Best", loss_legend:'💀 Loss Porn Legend' };
+  const flairHtml = list => list && list.length ? `<span class="flairs">${list.map(f => `<span class="flair">${FLAIR[f] || f}</span>`).join('')}</span>` : '';
+
   async function loadBoard() {
     try {
+      if (!session && user) { try { session = localStorage.getItem(sessKey()) || ''; } catch {} }
       board = await api('leaderboard');
       copyEnabled = !!board.copyEnabled;
-      drawBoard();
+      drawFame(); drawBoard();
     } catch (e) { $('boardList').innerHTML = `<div class="muted">${esc(e.message)}</div>`; }
   }
+
+  function drawFame() {
+    const f = board?.fame || {};
+    const cells = [
+      f.biggestGain && ['👑 Biggest gain', f.biggestGain, `<span class="pos">${pctTxt(f.biggestGain.roe)}</span>`],
+      f.biggestLoss && ['💀 Loss porn', f.biggestLoss, `<span class="neg">${pctTxt(f.biggestLoss.roe)}</span>`],
+      f.mostDiamond && ['💎🙌 Most diamond hands', f.mostDiamond, `<span>${f.mostDiamond.count} 💎🙌</span>`],
+      f.mostReacted && ['🔥 Most hyped', f.mostReacted, `<span>${f.mostReacted.count} reactions</span>`],
+      f.mostFollowed && ['🦍 Most followed', f.mostFollowed, `<span>${f.mostFollowed.count} following</span>`],
+    ].filter(Boolean);
+    $('fameCard').style.display = cells.length ? '' : 'none';
+    $('fame').innerHTML = cells.map(([title, t, val], i) => `<div data-fame="${i}"><small>${title}</small>
+      <b>${esc(t.nickname)}</b>${t.coin ? `<span style="color:#99a;font-weight:500">${esc(label(t.coin))} ${t.side === 'long' ? 'long' : 'short'} · </span>` : ''}${val}</div>`).join('');
+    $('fame').onclick = e => { const d = e.target.closest('[data-fame]'); if (d) openProfile(cells[Number(d.dataset.fame)][1].leaderId); };
+  }
+
   function drawBoard() {
     if (!board) return;
     const followingIds = new Set(mine.follows.filter(f => f.status !== 'stopped').map(f => f.leader_id));
     const myId = mine.leader?.id;
     if (!board.trades.length) {
-      $('boardList').innerHTML = `<div class="muted">No open trades yet. ${board.traders.length ? 'Traders on the board are flat right now.' : 'Be the first to share yours below.'}</div>`;
+      $('boardList').innerHTML = `<div class="muted">No open trades yet. ${board.traders.length ? 'Traders on the board are flat right now.' : 'Be the first to share yours below. 🦍'}</div>`;
       return;
     }
     $('boardList').innerHTML = board.trades.map((t, i) => {
@@ -1018,19 +1132,203 @@
         : followingIds.has(t.leaderId) ? `<span class="status">Following</span>`
         : `<button class="mini" data-follow="${t.leaderId}">Follow</button>`;
       const lvls = [`Entry ${money(t.entryPx)}`, t.markPx ? `Now ${money(t.markPx)}` : '', t.sl ? `Stop ${money(t.sl)}` : '', t.tp ? `Sell at ${money(t.tp)}` : ''].filter(Boolean).join(' · ');
+      const rx = RX.map(([k, e]) => `<button data-rx="${k}" data-t="${i}" class="${(t.mine || []).includes(k) ? 'on' : ''}">${e}${t.reactions?.[k] ? `<b>${t.reactions[k]}</b>` : ''}</button>`).join('');
       return `<div class="trow">
-        <div class="who"><span><span class="rank">#${i + 1}</span><b>${esc(t.nickname)}</b>${t.followers ? ` · ${t.followers} following` : ''}</span>${followBtn}</div>
-        <div class="what"><span class="m">${esc(label(t.coin))}<span class="sidepill ${t.side}">${t.side === 'long' ? 'LONG' : 'SHORT'} ${Math.round(t.lev)}x</span></span>
+        <div class="who"><span><span class="rank">#${i + 1}</span><b class="nick" data-prof="${t.leaderId}">${esc(t.nickname)}</b>${flairHtml(t.traderFlairs)}${t.followers ? ` · ${t.followers} following` : ''}</span>${followBtn}</div>
+        <div class="what"><span class="m">${esc(label(t.coin))}<span class="sidepill ${t.side}">${t.side === 'long' ? 'LONG' : 'SHORT'} ${Math.round(t.lev)}x</span>${flairHtml(t.flairs)}</span>
           <span class="roe ${t.roe >= 0 ? 'pos' : 'neg'}">${pctTxt(t.roe)}</span></div>
         <div class="lv"><span>${lvls}</span>${t.leaderId === myId ? '' : `<button class="mini blue" data-copy="${i}">Copy</button>`}</div>
+        ${t.tradeId ? `<div class="rx">${rx}<span class="sp"></span>
+          <button class="ic" data-thread="${i}">💬 ${t.comments || ''}${t.hasDD ? ' · DD' : ''}</button>
+          <button class="ic" data-share="${i}">📸</button></div>` : ''}
       </div>`;
     }).join('');
   }
+
   $('boardList').onclick = e => {
-    const c = e.target.closest('[data-copy]'), f = e.target.closest('[data-follow]');
-    if (c) copyTrade(board.trades[Number(c.dataset.copy)]);
-    if (f) openFollow(Number(f.dataset.follow));
+    const el = e.target.closest('[data-copy],[data-follow],[data-rx],[data-thread],[data-share],[data-prof]');
+    if (!el) return;
+    const t = el.dataset.t ?? el.dataset.copy ?? el.dataset.thread ?? el.dataset.share;
+    if (el.dataset.copy) copyTrade(board.trades[Number(el.dataset.copy)]);
+    else if (el.dataset.follow) openFollow(Number(el.dataset.follow));
+    else if (el.dataset.rx) reactTo(board.trades[Number(t)], el.dataset.rx);
+    else if (el.dataset.thread) openThread(board.trades[Number(t)]);
+    else if (el.dataset.share) shareTrade(board.trades[Number(t)]);
+    else if (el.dataset.prof) openProfile(Number(el.dataset.prof));
   };
+
+  // ---- Reactions ----
+  async function reactTo(t, kind) {
+    if (!user) return toast('Connect your wallet to react');
+    try {
+      await ensureSession();
+      const r = await api('react', { tradeId: t.tradeId, kind });
+      t.reactions = { ...(t.reactions || {}), [kind]: r.count };
+      t.mine = r.on ? [...new Set([...(t.mine || []), kind])] : (t.mine || []).filter(k => k !== kind);
+      drawBoard();
+    } catch (e) { toast(authErr(e)); }
+  }
+
+  // ---- Nickname (for people who comment without sharing trades) ----
+  let nickResolve = null;
+  function ensureNickname() {
+    if (mine.nickname || mine.leader) return Promise.resolve(true);
+    return new Promise(ok => { nickResolve = ok; $('nick2').value = ''; $('nickErr').textContent = ''; $('nickModal').classList.add('show'); });
+  }
+  $('nickX').onclick = () => { $('nickModal').classList.remove('show'); nickResolve && nickResolve(false); nickResolve = null; };
+  $('nickGo').onclick = async () => {
+    const n = $('nick2').value.trim();
+    if (!/^[A-Za-z0-9 _.-]{2,20}$/.test(n)) return $('nickErr').textContent = 'Use 2–20 letters, numbers, spaces, _ . or -';
+    try { await ensureSession(); await api('nickname', { nickname: n }); mine.nickname = n; $('nickModal').classList.remove('show'); nickResolve && nickResolve(true); nickResolve = null; drawShare(); }
+    catch (e) { $('nickErr').textContent = authErr(e); }
+  };
+
+  // ---- Comments and DD ----
+  let threadTrade = null;
+  async function openThread(t) {
+    threadTrade = t;
+    $('threadTitle').textContent = `💬 ${t.nickname} · ${label(t.coin)} ${t.side === 'long' ? 'LONG' : 'SHORT'}`;
+    $('threadPosts').innerHTML = '<div class="muted">Loading…</div>';
+    $('postErr').textContent = ''; $('postBody').value = ''; $('ddOn').checked = false;
+    $('composer').style.display = user ? '' : 'none';
+    $('threadModal').classList.add('show');
+    await loadThread();
+  }
+  async function loadThread() {
+    try {
+      const r = await api('posts?tradeId=' + threadTrade.tradeId);
+      $('ddWrap').style.display = r.isOwner ? '' : 'none';
+      $('threadPosts').innerHTML = r.posts.length ? r.posts.map(p => `<div class="post ${p.kind === 'dd' ? 'dd' : ''}">
+          <div class="ph"><span>${p.kind === 'dd' ? '📜 DD · ' : ''}<b ${p.authorLeaderId ? `class="nick" data-prof="${p.authorLeaderId}"` : ''}>${esc(p.nickname)}</b>${p.byOwner && p.kind !== 'dd' ? ' · trader' : ''}</span>
+          <span>${new Date(p.createdAt).toLocaleString(undefined, { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })}
+          ${p.mine || r.isAdmin ? `<span class="act" data-del="${p.id}">delete</span>` : ''}${!p.mine ? `<span class="act" data-rep="${p.id}">report</span>` : ''}</span></div>
+          <p>${esc(p.body)}</p></div>`).join('')
+        : `<div class="muted">No comments yet. Start the thread. 🦍</div>`;
+      if (!user) $('threadPosts').insertAdjacentHTML('beforeend', '<div class="note">Connect your wallet to comment.</div>');
+    } catch (e) { $('threadPosts').innerHTML = `<div class="muted">${esc(e.message)}</div>`; }
+  }
+  $('threadPosts').onclick = async e => {
+    const del = e.target.closest('[data-del]'), rep = e.target.closest('[data-rep]'), prof = e.target.closest('[data-prof]');
+    try {
+      if (del) { await ensureSession(); await api('post-delete', { postId: Number(del.dataset.del) }); toast('Deleted'); loadThread(); }
+      if (rep) { if (!user) return toast('Connect your wallet to report'); await ensureSession(); await api('report', { postId: Number(rep.dataset.rep) }); toast('Reported. Thanks for keeping it clean.'); loadThread(); }
+      if (prof) { $('threadModal').classList.remove('show'); openProfile(Number(prof.dataset.prof)); }
+    } catch (err) { toast(authErr(err)); }
+  };
+  $('threadX').onclick = () => { $('threadModal').classList.remove('show'); loadBoard(); };
+  $('ddOn').onchange = () => { $('postBody').placeholder = $('ddOn').checked ? 'Your DD: the thesis, catalysts, where you\'re wrong… (2000 characters)' : 'Say something… no links, no addresses, keep it civil'; };
+  $('postGo').onclick = async () => {
+    const body = $('postBody').value.trim(), kind = $('ddOn').checked ? 'dd' : 'comment';
+    if (!body) return;
+    if (kind === 'comment' && body.length > 280) return $('postErr').textContent = 'Comments are 280 characters max';
+    $('postGo').disabled = true; $('postErr').textContent = '';
+    try {
+      await ensureSession();
+      if (!(await ensureNickname())) { $('postGo').disabled = false; return; }
+      await api('post', { tradeId: threadTrade.tradeId, kind, body });
+      $('postBody').value = ''; $('ddOn').checked = false; loadThread();
+    } catch (e) { $('postErr').textContent = authErr(e); }
+    $('postGo').disabled = false;
+  };
+
+  // ---- Profiles ----
+  let profData = null;
+  async function openProfile(id) {
+    $('profBody').innerHTML = '<div class="muted">Loading…</div>';
+    $('profModal').classList.add('show');
+    try {
+      const p = profData = await api('profile?id=' + id);
+      const st = p.stats, pc = n => n == null ? '–' : pctTxt(n);
+      const followingIds = new Set(mine.follows.filter(f => f.status !== 'stopped').map(f => f.leader_id));
+      const isMe = mine.leader?.id === p.id;
+      $('profBody').innerHTML = `<h2 style="margin:0 0 4px">${esc(p.nickname)}</h2>
+        <div>${flairHtml(p.flairs).replace('margin-left:6px', '') || '<span class="muted" style="font-size:12px">No flairs yet</span>'}</div>
+        <div class="stats">
+          <div><small>Win rate</small><b>${st.winRate == null ? '–' : Math.round(st.winRate) + '%'}</b></div>
+          <div><small>Trades</small><b>${st.trades}</b></div>
+          <div><small>Avg return</small><b class="${(st.avgRoe || 0) >= 0 ? 'pos' : 'neg'}">${pc(st.avgRoe)}</b></div>
+          <div><small>Best</small><b class="${(st.best || 0) >= 0 ? 'pos' : 'neg'}">${pc(st.best)}</b></div>
+          <div><small>Worst</small><b class="${(st.worst || 0) >= 0 ? 'pos' : 'neg'}">${pc(st.worst)}</b></div>
+          <div><small>Following</small><b>${p.followers}</b></div>
+        </div>
+        ${isMe ? '' : `<div style="display:flex;gap:8px;margin-bottom:10px">
+          <button class="bell ${p.watching ? 'on' : ''}" id="profBell">${p.watching ? '🔔 Alerts on' : '🔕 Alert me'}</button>
+          ${copyEnabled ? (followingIds.has(p.id) ? '<span class="status" style="align-self:center">Following</span>' : `<button class="mini blue" id="profFollow">Follow</button>`) : ''}</div>`}
+        ${p.dd.length ? `<h3 style="font-size:15px;margin:12px 0 4px">📜 DD</h3>${p.dd.map(d => `<div class="post dd"><div class="ph"><span>${esc(label(d.coin))} ${d.side}</span><span>${new Date(d.created_at).toLocaleDateString()}</span></div><p>${esc(d.body)}</p></div>`).join('')}` : ''}
+        <h3 style="font-size:15px;margin:12px 0 4px">Trades</h3>
+        ${p.trades.length ? p.trades.map((t, i) => `<div class="hist"><span>${esc(label(t.coin))}<span class="sidepill ${t.side}">${t.side === 'long' ? 'LONG' : 'SHORT'} ${Math.round(t.lev || 1)}x</span>${t.open ? ' <span class="muted" style="font-size:12px">open</span>' : ''}${flairHtml(t.flairs)}</span>
+          <span><b class="${t.roe >= 0 ? 'pos' : 'neg'}">${pctTxt(t.roe)}</b> <button class="ic mini" data-pshare="${i}" style="padding:4px 8px">📸</button></span></div>`).join('') : '<div class="muted">No trades tracked yet.</div>'}`;
+      if ($('profBell')) $('profBell').onclick = () => toggleWatch(p);
+      if ($('profFollow')) $('profFollow').onclick = () => { $('profModal').classList.remove('show'); openFollow(p.id, p.nickname); };
+      $('profBody').querySelectorAll('[data-pshare]').forEach(b => b.onclick = () => shareTrade({ ...p.trades[Number(b.dataset.pshare)], nickname: p.nickname }));
+    } catch (e) { $('profBody').innerHTML = `<div class="muted">${esc(e.message)}</div>`; }
+  }
+  $('profX').onclick = () => $('profModal').classList.remove('show');
+
+  // ---- Phone alerts ----
+  async function enableAlerts() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) throw new Error('Alerts need the app added to your home screen (iPhone) or Chrome (Android)');
+    const { key } = await api('push-key');
+    if (!key) throw new Error('Alerts are coming soon');
+    if (Notification.permission !== 'granted' && (await Notification.requestPermission()) !== 'granted') throw new Error('Notifications are blocked for this site');
+    const reg = await navigator.serviceWorker.ready;
+    const raw = atob(key.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - key.length % 4) % 4));
+    const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: Uint8Array.from(raw, c => c.charCodeAt(0)) });
+    await ensureSession();
+    await api('push-sub', { subscription: sub.toJSON() });
+    try { localStorage.setItem('alerts:' + sessKey(), '1'); } catch {}
+  }
+  async function toggleWatch(p) {
+    if (!user) return toast('Connect your wallet first');
+    try {
+      if (!p.watching) await enableAlerts();
+      await ensureSession();
+      const r = await api('watch', { leaderId: p.id, on: !p.watching });
+      p.watching = r.watching;
+      $('profBell').classList.toggle('on', p.watching);
+      $('profBell').textContent = p.watching ? '🔔 Alerts on' : '🔕 Alert me';
+      toast(p.watching ? `You'll get an alert when ${p.nickname} trades` : 'Alerts off');
+    } catch (e) { toast(authErr(e)); }
+  }
+
+  // ---- Share cards (meme-style image of a trade) ----
+  function cardImage(t) {
+    const W = 1080, c = document.createElement('canvas'); c.width = W; c.height = W;
+    const g = c.getContext('2d'), up = (t.roe ?? 0) >= 0;
+    const bg = g.createLinearGradient(0, 0, W, W);
+    bg.addColorStop(0, '#0b0d12'); bg.addColorStop(1, up ? '#052e16' : '#3a1212');
+    g.fillStyle = bg; g.fillRect(0, 0, W, W);
+    g.globalAlpha = .07; g.font = '420px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji';
+    g.fillText(up ? '🚀' : '💀', 560, 980); g.globalAlpha = 1;
+    const F = (w, sz) => `${w} ${sz}px system-ui, -apple-system, Segoe UI, Roboto, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif`;
+    g.fillStyle = '#93c5fd'; g.font = F(800, 40); g.fillText('SIMPLE PERPS', 80, 120);
+    g.fillStyle = '#e8eaf0'; g.font = F(800, 120); g.fillText(label(t.coin), 80, 300);
+    const side = `${t.side === 'long' ? 'LONG' : 'SHORT'} ${Math.round(t.lev || 1)}x`;
+    g.font = F(800, 56); const sw = g.measureText(side).width + 48;
+    g.fillStyle = t.side === 'long' ? '#16a34a' : '#dc2626'; g.beginPath(); g.roundRect(80, 340, sw, 84, 18); g.fill();
+    g.fillStyle = '#fff'; g.fillText(side, 104, 402);
+    g.fillStyle = up ? '#4ade80' : '#f87171'; g.font = F(900, 230);
+    g.fillText(`${up ? '+' : ''}${Number(t.roe ?? 0).toFixed(1)}%`, 70, 680);
+    g.fillStyle = '#cbd5e1'; g.font = F(600, 44);
+    const exitPx = t.exitPx ?? t.markPx;
+    g.fillText(`Entry ${money(t.entryPx || 0)}${exitPx ? `  →  ${t.closedAt ? 'Exit' : 'Now'} ${money(exitPx)}` : ''}`, 80, 770);
+    const fl = (t.flairs || []).map(f => FLAIR[f]).filter(Boolean).join('   ');
+    if (fl) { g.fillStyle = '#c7d2fe'; g.font = F(700, 40); g.fillText(fl, 80, 850); }
+    g.fillStyle = '#e8eaf0'; g.font = F(800, 48); g.fillText(`@${t.nickname || 'anon ape'}`, 80, 960);
+    g.fillStyle = '#8b93a7'; g.font = F(600, 32); g.fillText('simpleperps.com · not financial advice 🦍', 80, 1015);
+    return new Promise(ok => c.toBlob(ok, 'image/png'));
+  }
+  async function shareTrade(t) {
+    try {
+      const blob = await cardImage(t);
+      const name = `simpleperps-${label(t.coin)}-${t.side}.png`.replace(/\s+/g, '');
+      const file = new File([blob], name, { type: 'image/png' });
+      const text = `${label(t.coin)} ${t.side === 'long' ? 'LONG' : 'SHORT'} ${pctTxt(t.roe ?? 0)} ${(t.roe ?? 0) >= 0 ? '🚀💎🙌' : '💀🧻'} on simpleperps.com`;
+      if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], text });
+      else { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); toast('Image saved'); }
+    } catch (e) { if (e.name !== 'AbortError') toast('Could not make the image: ' + e.message); }
+  }
+  $('sharePosBtn').onclick = () => curPos && shareTrade({ ...curPos, nickname: mine.leader?.nickname || mine.nickname || 'anon ape' });
 
   // One-tap copy: open the order sheet filled in like the leader's trade
   async function copyTrade(t) {
@@ -1054,16 +1352,21 @@
   // ---- Your follows ----
   async function loadMe() {
     if (!user) { drawShare(); return; }
+    try { session = session || localStorage.getItem(sessKey()) || ''; } catch {}
     try { mine = await api('me?wallet=' + me()); copyEnabled = mine.copyEnabled ?? copyEnabled; } catch { mine = { leader: null, follows: [] }; }
     drawShare(); drawFollows(); drawBoard();
   }
   function drawShare() {
     if (!user) { $('shareBox').innerHTML = 'Connect your wallet to join the leaderboard.'; return; }
-    $('shareBox').innerHTML = mine.leader
-      ? `You're on the leaderboard as <b>${esc(mine.leader.nickname)}</b>. Your open trades are visible to everyone. <div class="btns" style="margin-top:10px"><button class="mini red" id="leaveBtn">Leave the leaderboard</button></div>`
-      : `Show your open trades under a nickname so others can copy or follow you. <div style="margin-top:10px"><button class="mini blue" id="joinBtn">Join the leaderboard</button></div>`;
-    if ($('joinBtn')) $('joinBtn').onclick = () => { $('joinErr').textContent = ''; $('nick').value = ''; $('joinModal').classList.add('show'); };
+    let alertsOn = false; try { alertsOn = !!localStorage.getItem('alerts:' + sessKey()) && Notification.permission === 'granted'; } catch {}
+    $('shareBox').innerHTML = (mine.leader
+      ? `You're on the leaderboard as <b class="nick" id="myProf">${esc(mine.leader.nickname)}</b>. Your open trades are visible to everyone. <div class="btns" style="margin-top:10px;display:flex;gap:8px"><button class="mini red" id="leaveBtn">Leave the leaderboard</button></div>`
+      : `Show your open trades under a nickname so others can react, copy or follow you.${mine.nickname ? ` You comment as <b>${esc(mine.nickname)}</b>.` : ''} <div style="margin-top:10px"><button class="mini blue" id="joinBtn">Join the leaderboard</button></div>`)
+      + (mine.alerts ? `<div style="margin-top:10px"><button class="bell ${alertsOn ? 'on' : ''}" id="alertsBtn">${alertsOn ? '🔔 Phone alerts on' : '🔕 Turn on phone alerts'}</button></div>` : '');
+    if ($('joinBtn')) $('joinBtn').onclick = () => { $('joinErr').textContent = ''; $('nick').value = mine.nickname || ''; $('joinModal').classList.add('show'); };
     if ($('leaveBtn')) $('leaveBtn').onclick = leaveBoard;
+    if ($('myProf')) $('myProf').onclick = () => openProfile(mine.leader.id);
+    if ($('alertsBtn')) $('alertsBtn').onclick = async () => { try { await enableAlerts(); toast('Alerts on. Tap 🔕 on a trader\'s profile to watch them.'); drawShare(); } catch (e) { toast(authErr(e)); } };
   }
   function drawFollows() {
     const list = mine.follows.filter(f => f.status !== 'stopped');
@@ -1095,26 +1398,25 @@
     if (!/^[A-Za-z0-9 _.-]{2,20}$/.test(nick)) return $('joinErr').textContent = 'Use 2–20 letters, numbers, spaces, _ . or -';
     $('joinGo').disabled = true; $('joinErr').textContent = '';
     try {
-      const ts = Date.now();
-      const sig = await signText(MSG.join(me(), nick, ts));
-      await api('join', { wallet: me(), nickname: nick, ts, sig, residence });
-      $('joinModal').classList.remove('show'); toast('You\'re on the leaderboard'); loadMe(); loadBoard();
-    } catch (e) { $('joinErr').textContent = e.code === 4001 ? 'You cancelled in MetaMask' : e.message; }
+      await ensureSession();
+      await api('join', { wallet: me(), nickname: nick, ts: Date.now(), residence });
+      $('joinModal').classList.remove('show'); toast('You\'re on the leaderboard 🦍'); loadMe(); loadBoard();
+    } catch (e) { $('joinErr').textContent = authErr(e); }
     $('joinGo').disabled = false;
   };
   async function leaveBoard() {
     try {
-      const ts = Date.now();
-      await api('leave', { wallet: me(), ts, sig: await signText(MSG.leave(me(), ts)) });
+      await ensureSession();
+      await api('leave', { wallet: me(), ts: Date.now() });
       toast('You left the leaderboard'); loadMe(); loadBoard();
     } catch (e) { toast(e.code === 4001 ? 'Cancelled' : e.message); }
   }
 
   // ---- Follow ----
-  function openFollow(leaderId) {
+  function openFollow(leaderId, nickname) {
     if (!trader) return toast('Connect your wallet first');
     if (isBlockedResidence() || !geo.allowed) return toast('Following isn\'t available in your location');
-    folTarget = board.traders.find(t => t.id === leaderId) || board.trades.find(t => t.leaderId === leaderId);
+    folTarget = board?.traders.find(t => t.id === leaderId) || board?.trades.find(t => t.leaderId === leaderId) || { id: leaderId, nickname };
     $('folTitle').textContent = 'Follow ' + folTarget.nickname;
     $('folCap').textContent = maxOrderUsd ? `max ${money(maxOrderUsd).replace('.00', '')}` : '';
     $('folPer').value = Math.min(50, maxOrderUsd || 50); $('folTotal').value = 200; $('folStop').value = 5;
@@ -1149,20 +1451,21 @@
     const close = $('stopClose').checked;
     $('stopGo').disabled = true; $('stopErr').textContent = '';
     try {
-      const ts = Date.now();
-      await api('stop', { wallet: me(), followId: stopTarget.id, closeTrades: close, ts, sig: await signText(MSG.stop(me(), stopTarget.id, close, ts)) });
+      await ensureSession();
+      await api('stop', { wallet: me(), followId: stopTarget.id, closeTrades: close, ts: Date.now() });
       $('stopModal').classList.remove('show'); toast('Stopped following ' + stopTarget.nickname); loadMe(); loadBoard(); refresh();
     } catch (e) { $('stopErr').textContent = e.code === 4001 ? 'You cancelled in MetaMask' : e.message; }
     $('stopGo').disabled = false;
   };
   async function renewFollow(id) {
     try {
-      const ts = Date.now();
-      await api('renew', { wallet: me(), followId: id, residence, ts, sig: await signText(MSG.renew(me(), id, ts)) });
+      await ensureSession();
+      await api('renew', { wallet: me(), followId: id, residence, ts: Date.now() });
       toast('Renewed for 30 days'); loadMe();
     } catch (e) { toast(e.code === 4001 ? 'Cancelled' : e.message); }
   }
   setInterval(() => { if (view === 'board') { loadBoard(); if (user) loadMe(); } }, 15000);
+  if (new URLSearchParams(location.search).get('view') === 'board') setTimeout(() => setView('board'), 0);
 
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 

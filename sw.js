@@ -1,6 +1,6 @@
 // Keeps the app shell available so it opens quickly from the home screen.
 // Prices always come live from the network; only the page itself is cached.
-const CACHE = 'simple-perps-v3';
+const CACHE = 'simple-perps-v4';
 const SHELL = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -23,4 +23,22 @@ self.addEventListener('fetch', e => {
       return res;
     }).catch(() => caches.match(e.request).then(r => r || caches.match('/')))
   );
+});
+
+// Phone alerts: a watched trader opened or closed a trade, or someone commented on yours
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch { d = { title: 'Simple Perps', body: e.data && e.data.text() }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Simple Perps', {
+    body: d.body || '', tag: d.tag, icon: '/icon-192.png', badge: '/icon-192.png', data: { url: '/?view=board' },
+  }));
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+    const open = list.find(c => new URL(c.url).origin === location.origin);
+    if (open) { open.focus(); return open.navigate ? open.navigate('/?view=board') : null; }
+    return self.clients.openWindow('/?view=board');
+  }));
 });
