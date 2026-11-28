@@ -6,18 +6,25 @@
 //   HL_NETWORK       testnet | mainnet            (default testnet)
 //   MAX_ORDER_USD    largest new trade per order   (default 1000, 0 = no cap)
 //   PROXYCHECK_KEY   optional proxycheck.io key, turns on VPN/proxy blocking
+//   DATABASE_URL     Postgres for the leaderboard and auto-follow (off without it)
+//   COPY_KEY_SECRET  64 hex chars; encrypts stored auto-follow keys (auto-follow off without it)
 //   PORT             set by Render automatically
 
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const geoip = require('geoip-lite');
+const { createSocial } = require('./social');
 
 const NETWORK = process.env.HL_NETWORK === 'mainnet' ? 'mainnet' : 'testnet';
 const HL_API = NETWORK === 'mainnet' ? 'https://api.hyperliquid.xyz' : 'https://api.hyperliquid-testnet.xyz';
 const MAX_ORDER_USD = Number(process.env.MAX_ORDER_USD ?? 1000) || 0;
 const PROXYCHECK_KEY = process.env.PROXYCHECK_KEY || '';
 const PORT = process.env.PORT || 3000;
+
+// Markets the app offers (same list as the page). Leaderboard and auto-follow only cover these.
+const MARKETS = ['BTC', 'ETH', 'SOL', 'xyz:TSLA', 'xyz:NVDA', 'xyz:AAPL', 'xyz:SPCX', 'xyz:ANT', 'io:OAI'];
+const BUILDER = '0x96405e5cf188526d6f0d2e8a7a403aa1e6d11b00', BUILDER_FEE = 30; // 0.03% app fee
 
 // ---- Who can't open trades -------------------------------------------------
 // Matches Hyperliquid's Terms of Use: the United States, Ontario, and sanctioned territories.
@@ -141,6 +148,11 @@ async function handleExchange(req, res) {
   }
 }
 
+const readJson = req => readBody(req).then(t => { try { return JSON.parse(t || '{}'); } catch { return {}; } });
+
+const social = createSocial({ network: NETWORK, hlApi: HL_API, cap: MAX_ORDER_USD, markets: MARKETS,
+  builder: BUILDER, builderFee: BUILDER_FEE, checkLocation, isBlockedPlace });
+
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.json': 'application/json',
   '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json' };
 const ROOT = __dirname;
@@ -163,6 +175,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/config') return send(res, 200, { network: NETWORK, maxOrderUsd: MAX_ORDER_USD });
     if (url.pathname === '/api/geo') return send(res, 200, await checkLocation(req));
     if (url.pathname === '/api/exchange' && req.method === 'POST') return handleExchange(req, res);
+    if (await social.route(req, res, url, { send, readJson })) return;
     if (url.pathname.startsWith('/api/')) return send(res, 404, { status: 'err', response: 'Not found' });
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
     serveFile(req, res);
@@ -171,7 +184,9 @@ const server = http.createServer(async (req, res) => {
     send(res, 500, { status: 'err', response: 'Server error' });
   }
 });
-if (require.main === module)
+if (require.main === module) {
   server.listen(PORT, () => console.log(`Simple Perps on :${PORT} (${NETWORK}, max order $${MAX_ORDER_USD || '∞'})`));
+  social.start().catch(e => console.error('Leaderboard failed to start:', e.message));
+}
 
 module.exports = { opensRisk, largestNewOrderUsd, isBlockedPlace };

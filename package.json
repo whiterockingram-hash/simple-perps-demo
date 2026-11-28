@@ -6,10 +6,15 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test.js"
+    "test": "node test.js && node test-social.js"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
-    "geoip-lite": "^1.4.10"
+    "@nktkas/hyperliquid": "0.33.3",
+    "geoip-lite": "^1.4.10",
+    "pg": "8.23.1",
+    "viem": "2.58.8"
   }
 }

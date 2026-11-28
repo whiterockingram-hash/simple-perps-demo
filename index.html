@@ -111,6 +111,33 @@
   .modal .x{position:absolute;right:18px;top:18px}
   .modal .box{position:relative}
   .err{color:#f87171;font-size:13px;margin:-6px 0 10px;min-height:16px}
+  /* Trade / Leaderboard switch */
+  .nav{margin-bottom:14px}
+  /* Leaderboard */
+  .trow{border-top:1px solid rgba(255,255,255,.06);padding:12px 0}
+  .trow:first-child{border-top:none}
+  .trow .who{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:#99a;margin-bottom:6px}
+  .trow .who b{color:#e8eaf0}
+  .rank{display:inline-block;min-width:22px;color:#667;font-weight:700}
+  .trow .what{display:flex;justify-content:space-between;align-items:center}
+  .trow .what .m{font-weight:700;font-size:16px}
+  .trow .what .roe{font-weight:800;font-size:18px}
+  .trow .lv{display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:12px;color:#8b93a7;gap:8px}
+  .sidepill{font-size:11px;font-weight:800;padding:2px 7px;border-radius:6px;margin-left:6px;vertical-align:2px}
+  .sidepill.long{background:#052e16;color:#4ade80}.sidepill.short{background:#3a1212;color:#f87171}
+  .trow .lv > span{flex:1;min-width:0}
+  .trow .lv .mini{flex:0 0 auto;padding:8px 18px}
+  button.mini{width:auto}
+  .mini{border:none;border-radius:10px;padding:8px 14px;font-weight:700;font-size:13px;cursor:pointer;background:#222837;color:#e8eaf0;white-space:nowrap}
+  .mini.blue{background:#3b82f6;color:#fff}.mini.red{background:#3a1212;color:#fecaca}
+  .fol{border-top:1px solid rgba(255,255,255,.06);padding:12px 0}
+  .fol:first-child{border-top:none}
+  .fol .top{display:flex;justify-content:space-between;align-items:center}
+  .fol .sub{font-size:12px;color:#8b93a7;margin-top:4px;line-height:1.5}
+  .fol .btns{display:flex;gap:8px;margin-top:8px}
+  .status{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:#052e16;color:#4ade80}
+  .status.paused{background:#3b2f00;color:#fbbf24}
+  .muted{color:#8b93a7;font-size:14px;line-height:1.45}
 </style>
 </head>
 <body>
@@ -118,6 +145,12 @@
 
   <div class="banner" id="banner"></div>
 
+  <div class="group nav" id="nav">
+    <button data-v="trade" class="on">Trade</button>
+    <button data-v="board">Leaderboard</button>
+  </div>
+
+  <div id="tradeView">
   <div class="card">
     <div class="group" id="group">
       <button data-g="crypto" class="on">Crypto</button>
@@ -138,6 +171,23 @@
     <div id="posBox"></div>
     <button class="big plain" id="closeBtn">Close position</button>
     <div class="note" id="resNote"></div>
+  </div>
+  </div>
+
+  <div id="boardView" style="display:none">
+    <div class="card">
+      <div class="poshead"><h2>Top open trades</h2><span class="addfunds" id="boardRefresh">Refresh</span></div>
+      <div class="mnote" style="margin:0 0 6px">Live trades from people who chose to share them. Not advice. Copying can lose money.</div>
+      <div id="boardList"><div class="muted">Loading…</div></div>
+    </div>
+    <div class="card" id="followCard" style="display:none">
+      <div class="poshead"><h2>Following</h2></div>
+      <div id="followList"></div>
+    </div>
+    <div class="card" id="shareCard">
+      <div class="poshead"><h2>Share your trades</h2></div>
+      <div id="shareBox" class="muted">Connect your wallet to join the leaderboard.</div>
+    </div>
   </div>
 
   <!-- Long / Short bar -->
@@ -193,6 +243,51 @@
 
     <button class="big up go" id="goBtn">Confirm Long BTC</button>
     <div class="note" id="sheetNote">0.03% app fee · test money only, nothing here is real</div>
+  </div>
+
+  <!-- Join the leaderboard -->
+  <div class="modal" id="joinModal">
+    <div class="box">
+      <button class="x" id="joinX" aria-label="Close">✕</button>
+      <h2>Join the leaderboard</h2>
+      <p>Your open trades show under a nickname. Your wallet address stays hidden. Others can copy your trades or follow you automatically. You can leave anytime.</p>
+      <label class="small" for="nick">Nickname</label>
+      <div class="field"><input id="nick" maxlength="20" placeholder="2–20 letters or numbers"></div>
+      <div class="err" id="joinErr"></div>
+      <button class="big blue" id="joinGo" style="width:100%;margin-top:6px">Sign and join</button>
+      <div class="note">MetaMask asks you to sign a message. It's free and moves no money.</div>
+    </div>
+  </div>
+
+  <!-- Follow a trader automatically -->
+  <div class="modal" id="folModal">
+    <div class="box">
+      <button class="x" id="folX" aria-label="Close">✕</button>
+      <h2 id="folTitle">Follow</h2>
+      <p>When this trader opens a new trade, the same trade opens for you, within your limits. When they trim or close it, yours is trimmed or closed too. It runs even when the app is closed.</p>
+      <div class="line"><span>Amount per trade</span><span id="folCap"></span></div>
+      <div class="field"><input id="folPer" type="number" inputmode="decimal" min="10" step="any" value="50"><span>USD</span></div>
+      <div class="line"><span>Total limit across all copied trades</span></div>
+      <div class="field"><input id="folTotal" type="number" inputmode="decimal" min="10" step="any" value="200"><span>USD</span></div>
+      <div class="line"><span>Stop-loss on each copied trade</span><span>blank = none</span></div>
+      <div class="field"><input id="folStop" type="number" inputmode="decimal" min="1" max="50" step="any" value="5"><span>%</span></div>
+      <label class="chk"><input type="checkbox" id="folAgree"> I understand trades will be placed for me automatically for 30 days, leverage is capped at 10x, and I can lose money. I can stop anytime.</label>
+      <div class="err" id="folErr"></div>
+      <button class="big blue" id="folGo" style="width:100%">Start following</button>
+      <div class="note">MetaMask asks you to approve a trading key for following. It can place trades but can never withdraw your money.</div>
+    </div>
+  </div>
+
+  <!-- Stop following -->
+  <div class="modal" id="stopModal">
+    <div class="box">
+      <button class="x" id="stopX" aria-label="Close">✕</button>
+      <h2 id="stopTitle">Stop following</h2>
+      <p>No new trades will be copied. Choose what happens to trades already copied.</p>
+      <label class="chk"><input type="checkbox" id="stopClose"> Also close the copied trades now</label>
+      <div class="err" id="stopErr"></div>
+      <button class="big down" id="stopGo" style="width:100%;margin-top:6px">Stop following</button>
+    </div>
   </div>
 
   <!-- Deposit USDC from Arbitrum into Hyperliquid -->
@@ -265,7 +360,7 @@
   const live = () => mk[coin] || {};
 
   const $ = id => document.getElementById(id);
-  let user, trader, residence = '', geo = { allowed: true };
+  let user, trader, userClient, residence = '', geo = { allowed: true };
 
   const toast = t => { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 3800); };
   const money = n => (Number(n) < 0 ? '-$' : '$') + Math.abs(Number(n)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -660,7 +755,7 @@
       try { residence = localStorage.getItem('residence:' + user) || ''; } catch { residence = ''; }
       if (!residence) await askResidence();
       const wallet = viem.createWalletClient({ account: user, transport: viem.custom(ethereum) });
-      const userClient = new hl.ExchangeClient({ wallet, transport });
+      userClient = new hl.ExchangeClient({ wallet, transport });
       const keyName = `hlKey:${NET}`;
       let key = localStorage.getItem(keyName) || (NET === 'testnet' ? localStorage.getItem('hlKey') : null);
       if (!key) {
@@ -688,7 +783,7 @@
       $('connect').textContent = user.slice(0,6) + '…' + user.slice(-4);
       $('acct').style.display = 'block';
       drawResidence();
-      toast('Wallet connected'); await loadAccount().catch(() => {}); refresh();
+      toast('Wallet connected'); await loadAccount().catch(() => {}); refresh(); loadMe();
     } catch (e) { toast(/deposit/i.test(e.message) ? 'This wallet needs test funds first' : 'Could not connect: ' + e.message); }
   };
 
@@ -865,6 +960,209 @@
     catch (e) { toast('Close failed: ' + e.message); }
     busy(false);
   };
+
+  // ---- Leaderboard, copy and follow ---------------------------------------------------------------
+  let view = 'trade', board = null, mine = { leader: null, follows: [] }, copyEnabled = false, folTarget = null, stopTarget = null;
+  const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  const mOf = coin => MARKETS.find(m => m.id === coin) || { name: coin, short: coin, group: 'crypto' };
+  const label = coin => { const m = mOf(coin); return m.group === 'stocks' ? m.name : m.short; };
+  const pctTxt = n => (n >= 0 ? '+' : '') + Number(n).toFixed(1) + '%';
+  const api = async (path, body) => {
+    const r = await fetch('/api/social/' + path, body ? { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) } : { cache:'no-store' });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || 'Something went wrong');
+    return j;
+  };
+  // Same wording the server checks; signing is free and moves no money
+  const MSG = {
+    join: (w, n, ts) => `Simple Perps leaderboard\nShow my open trades as: ${n}\nWallet: ${w}\nTime: ${ts}`,
+    leave: (w, ts) => `Simple Perps leaderboard\nRemove my trades\nWallet: ${w}\nTime: ${ts}`,
+    stop: (w, id, close, ts) => `Simple Perps\nStop following #${id}${close ? ' and close copied trades' : ''}\nWallet: ${w}\nTime: ${ts}`,
+    renew: (w, id, ts) => `Simple Perps\nRenew following #${id} for 30 days\nWallet: ${w}\nTime: ${ts}`,
+  };
+  async function signText(msg) {
+    const hexMsg = '0x' + Array.from(new TextEncoder().encode(msg)).map(b => b.toString(16).padStart(2, '0')).join('');
+    return ethereum.request({ method: 'personal_sign', params: [hexMsg, user] });
+  }
+  const me = () => (user || '').toLowerCase();
+
+  function setView(v) {
+    view = v;
+    document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+    $('tradeView').style.display = v === 'trade' ? '' : 'none';
+    $('boardView').style.display = v === 'board' ? '' : 'none';
+    document.querySelector('.actionbar').style.display = v === 'trade' ? '' : 'none';
+    if (v === 'board') { loadBoard(); loadMe(); }
+    window.scrollTo(0, 0);
+  }
+  $('nav').onclick = e => { if (e.target.dataset.v) setView(e.target.dataset.v); };
+  $('boardRefresh').onclick = () => loadBoard(true);
+
+  async function loadBoard() {
+    try {
+      board = await api('leaderboard');
+      copyEnabled = !!board.copyEnabled;
+      drawBoard();
+    } catch (e) { $('boardList').innerHTML = `<div class="muted">${esc(e.message)}</div>`; }
+  }
+  function drawBoard() {
+    if (!board) return;
+    const followingIds = new Set(mine.follows.filter(f => f.status !== 'stopped').map(f => f.leader_id));
+    const myId = mine.leader?.id;
+    if (!board.trades.length) {
+      $('boardList').innerHTML = `<div class="muted">No open trades yet. ${board.traders.length ? 'Traders on the board are flat right now.' : 'Be the first to share yours below.'}</div>`;
+      return;
+    }
+    $('boardList').innerHTML = board.trades.map((t, i) => {
+      const followBtn = !copyEnabled || t.leaderId === myId ? ''
+        : followingIds.has(t.leaderId) ? `<span class="status">Following</span>`
+        : `<button class="mini" data-follow="${t.leaderId}">Follow</button>`;
+      const lvls = [`Entry ${money(t.entryPx)}`, t.markPx ? `Now ${money(t.markPx)}` : '', t.sl ? `Stop ${money(t.sl)}` : '', t.tp ? `Sell at ${money(t.tp)}` : ''].filter(Boolean).join(' · ');
+      return `<div class="trow">
+        <div class="who"><span><span class="rank">#${i + 1}</span><b>${esc(t.nickname)}</b>${t.followers ? ` · ${t.followers} following` : ''}</span>${followBtn}</div>
+        <div class="what"><span class="m">${esc(label(t.coin))}<span class="sidepill ${t.side}">${t.side === 'long' ? 'LONG' : 'SHORT'} ${Math.round(t.lev)}x</span></span>
+          <span class="roe ${t.roe >= 0 ? 'pos' : 'neg'}">${pctTxt(t.roe)}</span></div>
+        <div class="lv"><span>${lvls}</span>${t.leaderId === myId ? '' : `<button class="mini blue" data-copy="${i}">Copy</button>`}</div>
+      </div>`;
+    }).join('');
+  }
+  $('boardList').onclick = e => {
+    const c = e.target.closest('[data-copy]'), f = e.target.closest('[data-follow]');
+    if (c) copyTrade(board.trades[Number(c.dataset.copy)]);
+    if (f) openFollow(Number(f.dataset.follow));
+  };
+
+  // One-tap copy: open the order sheet filled in like the leader's trade
+  async function copyTrade(t) {
+    if (!trader) return toast('Connect your wallet first');
+    const m = mOf(t.coin);
+    setView('trade');
+    if (group !== m.group) { group = m.group; document.querySelectorAll('#group button').forEach(b => b.classList.toggle('on', b.dataset.g === group)); }
+    pickMarket(t.coin);
+    await refresh();
+    if (!live().tradable) return toast('This market opens at launch');
+    openSheet(t.side === 'long');
+    $('levR').value = Math.max(1, Math.min(Math.round(t.lev), Number($('levR').max)));
+    $('levR').dispatchEvent(new Event('input'));
+    const hasLevels = !!(t.tp || t.sl);
+    $('tpslOn').checked = hasLevels; $('tpslBox').classList.toggle('show', hasLevels);
+    $('tpPx').value = t.tp || ''; $('slPx').value = t.sl || '';
+    syncFromPx('tp'); syncFromPx('sl'); updateOrder();
+    toast(`Copied ${t.nickname}'s trade. Check the size, then confirm.`);
+  }
+
+  // ---- Your follows ----
+  async function loadMe() {
+    if (!user) { drawShare(); return; }
+    try { mine = await api('me?wallet=' + me()); copyEnabled = mine.copyEnabled ?? copyEnabled; } catch { mine = { leader: null, follows: [] }; }
+    drawShare(); drawFollows(); drawBoard();
+  }
+  function drawShare() {
+    if (!user) { $('shareBox').innerHTML = 'Connect your wallet to join the leaderboard.'; return; }
+    $('shareBox').innerHTML = mine.leader
+      ? `You're on the leaderboard as <b>${esc(mine.leader.nickname)}</b>. Your open trades are visible to everyone. <div class="btns" style="margin-top:10px"><button class="mini red" id="leaveBtn">Leave the leaderboard</button></div>`
+      : `Show your open trades under a nickname so others can copy or follow you. <div style="margin-top:10px"><button class="mini blue" id="joinBtn">Join the leaderboard</button></div>`;
+    if ($('joinBtn')) $('joinBtn').onclick = () => { $('joinErr').textContent = ''; $('nick').value = ''; $('joinModal').classList.add('show'); };
+    if ($('leaveBtn')) $('leaveBtn').onclick = leaveBoard;
+  }
+  function drawFollows() {
+    const list = mine.follows.filter(f => f.status !== 'stopped');
+    $('followCard').style.display = list.length ? '' : 'none';
+    $('followList').innerHTML = list.map(f => {
+      const paused = f.status !== 'active';
+      const until = new Date(f.expires_at).toLocaleDateString(undefined, { month:'short', day:'numeric' });
+      const copies = (f.copies || []).map(c => `${c.side === 'long' ? 'Long' : 'Short'} ${esc(label(c.coin))}`).join(', ');
+      return `<div class="fol">
+        <div class="top"><b>${esc(f.nickname)}</b><span class="status ${paused ? 'paused' : ''}">${paused ? 'Paused' : 'Active'}</span></div>
+        <div class="sub">${money(f.per_trade_usd)} per trade · ${money(f.max_total_usd)} total · ${f.stop_pct ? f.stop_pct + '% stop-loss' : 'no stop-loss'}<br>
+          ${paused ? esc(f.status_reason || '') : 'Runs until ' + until}${copies ? '<br>Copied now: ' + copies : ''}
+          ${f.last_error ? `<br><span style="color:#fbbf24">${esc(f.last_error)}</span>` : ''}</div>
+        <div class="btns">${paused || (new Date(f.expires_at) - Date.now() < 5 * 86400e3) ? `<button class="mini blue" data-renew="${f.id}">Renew 30 days</button>` : ''}
+          <button class="mini red" data-stop="${f.id}">Stop</button></div>
+      </div>`;
+    }).join('');
+  }
+  $('followList').onclick = e => {
+    const s = e.target.closest('[data-stop]'), r = e.target.closest('[data-renew]');
+    if (s) { stopTarget = mine.follows.find(f => f.id === Number(s.dataset.stop)); $('stopTitle').textContent = 'Stop following ' + stopTarget.nickname; $('stopErr').textContent = ''; $('stopClose').checked = false; $('stopModal').classList.add('show'); }
+    if (r) renewFollow(Number(r.dataset.renew));
+  };
+
+  // ---- Join / leave ----
+  $('joinX').onclick = () => $('joinModal').classList.remove('show');
+  $('joinGo').onclick = async () => {
+    const nick = $('nick').value.trim();
+    if (!/^[A-Za-z0-9 _.-]{2,20}$/.test(nick)) return $('joinErr').textContent = 'Use 2–20 letters, numbers, spaces, _ . or -';
+    $('joinGo').disabled = true; $('joinErr').textContent = '';
+    try {
+      const ts = Date.now();
+      const sig = await signText(MSG.join(me(), nick, ts));
+      await api('join', { wallet: me(), nickname: nick, ts, sig, residence });
+      $('joinModal').classList.remove('show'); toast('You\'re on the leaderboard'); loadMe(); loadBoard();
+    } catch (e) { $('joinErr').textContent = e.code === 4001 ? 'You cancelled in MetaMask' : e.message; }
+    $('joinGo').disabled = false;
+  };
+  async function leaveBoard() {
+    try {
+      const ts = Date.now();
+      await api('leave', { wallet: me(), ts, sig: await signText(MSG.leave(me(), ts)) });
+      toast('You left the leaderboard'); loadMe(); loadBoard();
+    } catch (e) { toast(e.code === 4001 ? 'Cancelled' : e.message); }
+  }
+
+  // ---- Follow ----
+  function openFollow(leaderId) {
+    if (!trader) return toast('Connect your wallet first');
+    if (isBlockedResidence() || !geo.allowed) return toast('Following isn\'t available in your location');
+    folTarget = board.traders.find(t => t.id === leaderId) || board.trades.find(t => t.leaderId === leaderId);
+    $('folTitle').textContent = 'Follow ' + folTarget.nickname;
+    $('folCap').textContent = maxOrderUsd ? `max ${money(maxOrderUsd).replace('.00', '')}` : '';
+    $('folPer').value = Math.min(50, maxOrderUsd || 50); $('folTotal').value = 200; $('folStop').value = 5;
+    $('folAgree').checked = false; $('folErr').textContent = '';
+    $('folModal').classList.add('show');
+  }
+  $('folX').onclick = () => $('folModal').classList.remove('show');
+  $('folGo').onclick = async () => {
+    const per = num('folPer'), total = num('folTotal'), stopRaw = $('folStop').value.trim(), stop = stopRaw === '' ? null : Number(stopRaw);
+    if (per < 10) return $('folErr').textContent = 'Amount per trade must be at least $10';
+    if (maxOrderUsd && per > maxOrderUsd) return $('folErr').textContent = `Amount per trade can be at most ${money(maxOrderUsd)} for now`;
+    if (total < per) return $('folErr').textContent = 'Total limit must be at least the amount per trade';
+    if (stop !== null && !(stop >= 1 && stop <= 50)) return $('folErr').textContent = 'Stop-loss must be between 1% and 50%';
+    if (!$('folAgree').checked) return $('folErr').textContent = 'Please tick the box to confirm';
+    $('folGo').disabled = true; $('folErr').textContent = 'Approve the following key in MetaMask…';
+    try {
+      const { generatePrivateKey, privateKeyToAccount } = viemAccounts;
+      const agentKey = generatePrivateKey();
+      await userClient.approveAgent({ agentAddress: privateKeyToAccount(agentKey).address, agentName: 'copy' });
+      $('folErr').textContent = 'Setting up…';
+      await api('follow', { follower: me(), leaderId: folTarget.id ?? folTarget.leaderId, perTradeUsd: per, maxTotalUsd: total, stopPct: stop, agentKey, residence });
+      $('folModal').classList.remove('show');
+      toast(`Following ${folTarget.nickname}. Their next trade will be copied.`);
+      loadMe(); loadBoard();
+    } catch (e) { $('folErr').textContent = e.code === 4001 ? 'You cancelled in MetaMask' : e.message; }
+    $('folGo').disabled = false;
+  };
+
+  // ---- Stop / renew ----
+  $('stopX').onclick = () => $('stopModal').classList.remove('show');
+  $('stopGo').onclick = async () => {
+    const close = $('stopClose').checked;
+    $('stopGo').disabled = true; $('stopErr').textContent = '';
+    try {
+      const ts = Date.now();
+      await api('stop', { wallet: me(), followId: stopTarget.id, closeTrades: close, ts, sig: await signText(MSG.stop(me(), stopTarget.id, close, ts)) });
+      $('stopModal').classList.remove('show'); toast('Stopped following ' + stopTarget.nickname); loadMe(); loadBoard(); refresh();
+    } catch (e) { $('stopErr').textContent = e.code === 4001 ? 'You cancelled in MetaMask' : e.message; }
+    $('stopGo').disabled = false;
+  };
+  async function renewFollow(id) {
+    try {
+      const ts = Date.now();
+      await api('renew', { wallet: me(), followId: id, residence, ts, sig: await signText(MSG.renew(me(), id, ts)) });
+      toast('Renewed for 30 days'); loadMe();
+    } catch (e) { toast(e.code === 4001 ? 'Cancelled' : e.message); }
+  }
+  setInterval(() => { if (view === 'board') { loadBoard(); if (user) loadMe(); } }, 15000);
 
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 
