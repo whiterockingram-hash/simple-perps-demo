@@ -156,7 +156,7 @@ const social = createSocial({ network: NETWORK, hlApi: HL_API, cap: MAX_ORDER_US
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.json': 'application/json',
   '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json' };
 const ROOT = __dirname;
-const PUBLIC = new Set(['index.html', 'manifest.json', 'sw.js', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png']);
+const PUBLIC = new Set(['index.html', 'manifest.json', 'sw.js', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'mascot.png', 'og.png']);
 
 function serveFile(req, res) {
   let name = decodeURIComponent(new URL(req.url, 'http://x').pathname).replace(/^\/+/, '') || 'index.html';

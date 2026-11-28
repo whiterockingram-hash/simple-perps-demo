@@ -4,7 +4,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Simple Perps</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0b0d12">
+<meta name="theme-color" content="#0e0b15">
+<meta name="description" content="Long or short Tesla, SpaceX, Anthropic and crypto. See what other traders are doing, react, copy and share your wins and losses.">
+<meta property="og:title" content="Simple Perps">
+<meta property="og:description" content="Long or short Tesla, SpaceX, Anthropic and crypto, with your fellow apes.">
+<meta property="og:image" content="https://simpleperps.com/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Dela+Gothic+One&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -167,10 +175,104 @@
   textarea{width:100%;font:inherit;font-size:15px;padding:10px 12px;border-radius:12px;border:1px solid #2d3340;background:#141821;color:#fff;resize:vertical;min-height:70px;margin:6px 0}
   .bell{background:#222837;border:none;border-radius:10px;padding:8px 12px;color:#e8eaf0;font-weight:700;font-size:13px;cursor:pointer}
   .bell.on{background:#3b2f00;color:#fbbf24}
+
+  /* ===== Brand theme: sticker-bomb trading desk ===== */
+  :root{
+    --ink:#0E0B15; --dusk:#1A1524; --deep:#120E1A; --raise:#241D31; --line:#2E2640;
+    --sticker:#F7F4FF; --mute:#A79FB8; --lime:#8CFF4A; --red:#FF3B5C; --tendie:#FFD23F;
+    --display:'Dela Gothic One', 'Bricolage Grotesque', system-ui, sans-serif;
+  }
+  body{font-family:'Bricolage Grotesque',system-ui,-apple-system,sans-serif;color:var(--sticker);
+    background:radial-gradient(120% 60% at 50% -10%,#2a1f3d 0%,var(--ink) 55%) fixed,var(--ink)}
+  :focus-visible{outline:3px solid var(--tendie);outline-offset:2px}
+  .pos{color:var(--lime)} .neg{color:var(--red)}
+  header h1{font-family:var(--display);font-weight:400;font-size:18px;letter-spacing:-.3px;white-space:nowrap}
+  header .wallet{padding:8px 12px}
+  header .left{gap:10px}
+  .logo{width:38px;height:38px;border-radius:50%;border:2px solid var(--sticker);box-shadow:2px 2px 0 #000;flex:0 0 auto}
+  .badge{background:var(--tendie);color:var(--ink);font-family:var(--display);font-weight:400;font-size:10px;letter-spacing:.5px;
+    border:2px solid #000;box-shadow:2px 2px 0 #000;transform:rotate(-5deg);padding:3px 8px;border-radius:8px}
+  .badge.live{background:var(--lime);color:var(--ink)}
+  .wallet{background:var(--tendie);color:var(--ink);border:2px solid #000;box-shadow:3px 3px 0 #000;font-weight:800;border-radius:12px}
+  .wallet:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #000}
+  .card{background:var(--dusk);border:2px solid var(--line);border-radius:22px;box-shadow:6px 6px 0 #000}
+  .card h2,.poshead h2,.shead h2,.modal h2{font-family:var(--display);font-weight:400;letter-spacing:-.2px}
+  .banner{background:#3a0f1c;border:2px solid var(--red);color:#ffd5dd}
+  .group{background:var(--deep);border:2px solid var(--line);border-radius:14px}
+  .group button{color:var(--mute);font-family:inherit;font-weight:700}
+  .group button.on{background:var(--sticker);color:var(--ink);box-shadow:2px 2px 0 #000}
+  .chip{background:var(--raise);color:#d9d1e8;font-family:inherit;font-weight:700;border:2px solid transparent}
+  .chip.on{background:var(--tendie);color:var(--ink);border-color:#000;box-shadow:2px 2px 0 #000}
+  .mname{color:#d9d1e8}
+  .price{font-family:var(--display);font-weight:400;font-size:38px;letter-spacing:-1px;font-variant-numeric:tabular-nums}
+  .tag{background:var(--raise);color:var(--sticker)}
+  .tag.pre{background:#3b1d6e;color:#e3d2ff}
+  .mnote{color:var(--mute)}
+  .tf button{color:var(--mute);font-family:inherit}
+  .tf button.on{background:var(--raise);color:var(--sticker)}
+  input,select{background:var(--deep);border:2px solid var(--line);color:var(--sticker);font-family:inherit}
+  input:focus,select:focus,textarea:focus{border-color:var(--tendie);outline:none}
+  .field{background:var(--deep);border:2px solid var(--line)}
+  .field:focus-within{border-color:var(--tendie)}
+  .field input{border:none}
+  textarea{background:var(--deep);border:2px solid var(--line)}
+  input[type=range]{background:var(--line)}
+  input[type=range]::-webkit-slider-thumb{border-color:var(--tendie);background:var(--sticker)}
+  input[type=range]::-moz-range-thumb{border-color:var(--tendie);background:var(--sticker)}
+  .chk input{accent-color:var(--tendie)}
+  /* the buttons that matter: chunky stickers you press */
+  button.big{font-family:var(--display);font-weight:400;letter-spacing:.2px;border:3px solid #000;box-shadow:4px 4px 0 #000;border-radius:16px}
+  button.big:active{transform:translate(3px,3px);box-shadow:1px 1px 0 #000}
+  .up{background:var(--lime);color:var(--ink)}
+  .down{background:var(--red);color:#fff}
+  .blue{background:var(--tendie);color:var(--ink)}
+  .plain{background:var(--raise);color:var(--sticker);box-shadow:4px 4px 0 #000}
+  .actionbar{background:linear-gradient(transparent,var(--ink) 40%)}
+  .actionbar .soon{background:var(--dusk);border:2px dashed var(--line);color:var(--mute)}
+  .toast{background:var(--sticker);color:var(--ink);font-weight:700;border:2px solid #000;box-shadow:4px 4px 0 #000;border-radius:14px}
+  .note{color:var(--mute)} .note a,.addfunds{color:var(--tendie)}
+  .sheet,.modal .box{background:var(--dusk);border:2px solid var(--line);border-bottom:none}
+  .grab{background:var(--line)}
+  .x{background:var(--raise);color:var(--sticker)}
+  .side{background:var(--deep);border:2px solid var(--line)}
+  .side button{font-family:var(--display);font-weight:400;color:var(--mute)}
+  .side button.on.long{background:var(--lime);color:var(--ink)}
+  .side button.on.short{background:var(--red);color:#fff}
+  .line b{color:var(--sticker)}
+  .warn{color:var(--tendie)}
+  .empty{background:var(--deep);border:2px dashed var(--line);color:var(--mute)}
+  .stat span:first-child{color:var(--mute)}
+  /* leaderboard */
+  .trow{border-top:2px solid var(--line)}
+  .trow .what .roe{font-family:var(--display);font-weight:400;font-variant-numeric:tabular-nums}
+  .trow .what .m{font-weight:800}
+  .sidepill{font-family:var(--display);font-weight:400;font-size:10px;border:1.5px solid #000;box-shadow:1.5px 1.5px 0 #000}
+  .sidepill.long{background:var(--lime);color:var(--ink)} .sidepill.short{background:var(--red);color:#fff}
+  .flair{background:#2A1F3D;color:#ECE2FF;border:1px solid #4b3a66}
+  .mini{background:var(--raise);color:var(--sticker);border:2px solid #000;box-shadow:2px 2px 0 #000;font-family:inherit}
+  .mini.blue{background:var(--tendie);color:var(--ink)} .mini.red{background:#3a0f1c;color:#ffd5dd}
+  .mini:active{transform:translate(2px,2px);box-shadow:0 0 0 #000}
+  .rx button{background:var(--deep);border:2px solid var(--line);font-family:inherit}
+  .rx button.on{border-color:var(--tendie);background:#3a2f0a}
+  .rx .ic{color:var(--mute)}
+  .status{background:var(--lime);color:var(--ink)} .status.paused{background:var(--tendie);color:var(--ink)}
+  .fame div{background:var(--deep);border:2px solid var(--line)}
+  .fame b{font-family:var(--display);font-weight:400;font-size:15px}
+  .fame small{color:var(--mute);text-transform:none;letter-spacing:0;font-size:12px}
+  .stats div{background:var(--deep);border:2px solid var(--line)}
+  .stats b{font-family:var(--display);font-weight:400}
+  .hist{border-top:2px solid var(--line)}
+  .post{border-top:2px solid var(--line)}
+  .post.dd{background:#241a0a;border:2px solid var(--tendie)}
+  .bell{background:var(--raise);border:2px solid #000;box-shadow:2px 2px 0 #000;font-family:inherit}
+  .bell.on{background:var(--tendie);color:var(--ink)}
+  .fol .sub,.muted{color:var(--mute)}
+  .rank{color:var(--mute)}
+  @media (prefers-reduced-motion: reduce){ *{transition:none!important} }
 </style>
 </head>
 <body>
-  <header><div class="left"><h1>Simple Perps</h1><span class="badge" id="netBadge">TESTNET</span></div><button class="wallet" id="connect">Connect</button></header>
+  <header><div class="left"><img src="mascot.png" class="logo" alt=""><h1>Simple Perps</h1><span class="badge" id="netBadge">TESTNET</span></div><button class="wallet" id="connect">Connect</button></header>
 
   <div class="banner" id="banner"></div>
 
@@ -515,15 +617,15 @@
   const LWC = window.LightweightCharts;
   const chart = !LWC ? null : LWC.createChart($('chart'), {
     autoSize: true,
-    layout: { background: { color: 'transparent' }, textColor: '#8b93a7', fontSize: 11 },
-    grid: { vertLines: { color: 'rgba(255,255,255,.04)' }, horzLines: { color: 'rgba(255,255,255,.04)' } },
+    layout: { background: { color: 'transparent' }, textColor: '#A79FB8', fontSize: 11, fontFamily: 'Bricolage Grotesque, system-ui, sans-serif' },
+    grid: { vertLines: { color: 'rgba(167,159,184,.07)' }, horzLines: { color: 'rgba(167,159,184,.07)' } },
     rightPriceScale: { borderVisible: false },
     timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false },
     crosshair: { mode: 0 },
     handleScroll: true, handleScale: true,
   });
   const series = chart && chart.addCandlestickSeries({
-    upColor: '#22c55e', downColor: '#ef4444', wickUpColor: '#22c55e', wickDownColor: '#ef4444', borderVisible: false,
+    upColor: '#8CFF4A', downColor: '#FF3B5C', wickUpColor: '#8CFF4A', wickDownColor: '#FF3B5C', borderVisible: false,
     priceLineVisible: false, lastValueVisible: false, // replaced by the labelled "Now" line below
     // Keep every line on screen, so you can watch the price move toward your stop and sell-at levels
     autoscaleInfoProvider: original => {
@@ -538,10 +640,10 @@
 
   // ---- Lines on the chart: Now, Entry, Stop, Sell at ----
   const LINE_STYLE = {
-    now:   { color: '#e8eaf0', title: 'Now',     lineStyle: 2, lineWidth: 1 },
-    entry: { color: '#8b93a7', title: 'Entry',   lineStyle: 1, lineWidth: 1 },
-    sl:    { color: '#ef4444', title: 'Stop',    lineStyle: 0, lineWidth: 2 },
-    tp:    { color: '#22c55e', title: 'Sell at', lineStyle: 0, lineWidth: 2 },
+    now:   { color: '#F7F4FF', title: 'Now',     lineStyle: 2, lineWidth: 1 },
+    entry: { color: '#A79FB8', title: 'Entry',   lineStyle: 1, lineWidth: 1 },
+    sl:    { color: '#FF3B5C', title: 'Stop',    lineStyle: 0, lineWidth: 2 },
+    tp:    { color: '#8CFF4A', title: 'Sell at', lineStyle: 0, lineWidth: 2 },
   };
   const lines = {}, lineAt = {};
   function setLine(key, price) {
@@ -1292,30 +1394,47 @@
   }
 
   // ---- Share cards (meme-style image of a trade) ----
-  function cardImage(t) {
+  // Share card in the brand style: chunky headline font, sticker pill, mascot stamp
+  const loadImg = src => new Promise(ok => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null); im.src = src; });
+  async function cardImage(t) {
     const W = 1080, c = document.createElement('canvas'); c.width = W; c.height = W;
     const g = c.getContext('2d'), up = (t.roe ?? 0) >= 0;
-    const bg = g.createLinearGradient(0, 0, W, W);
-    bg.addColorStop(0, '#0b0d12'); bg.addColorStop(1, up ? '#052e16' : '#3a1212');
+    try { await Promise.all([document.fonts.load('400 100px "Dela Gothic One"'), document.fonts.load('700 40px "Bricolage Grotesque"')]); } catch {}
+    const D = sz => `400 ${sz}px "Dela Gothic One", system-ui, sans-serif`;
+    const B = (w, sz) => `${w} ${sz}px "Bricolage Grotesque", system-ui, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+    const bg = g.createLinearGradient(0, 0, W * .4, W);
+    bg.addColorStop(0, '#1A1524'); bg.addColorStop(1, up ? '#0f3a12' : '#45091c');
     g.fillStyle = bg; g.fillRect(0, 0, W, W);
-    g.globalAlpha = .07; g.font = '420px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji';
-    g.fillText(up ? '🚀' : '💀', 560, 980); g.globalAlpha = 1;
-    const F = (w, sz) => `${w} ${sz}px system-ui, -apple-system, Segoe UI, Roboto, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif`;
-    g.fillStyle = '#93c5fd'; g.font = F(800, 40); g.fillText('SIMPLE PERPS', 80, 120);
-    g.fillStyle = '#e8eaf0'; g.font = F(800, 120); g.fillText(label(t.coin), 80, 300);
+    // faint candles for texture
+    g.globalAlpha = .12; g.fillStyle = up ? '#8CFF4A' : '#FF3B5C';
+    for (let k = 0; k < 14; k++) { const x = 560 + k * 36, hgt = 60 + ((k * 53) % 140), y = up ? 900 - k * 38 - hgt : 300 + k * 38; g.fillRect(x, y, 18, hgt); }
+    g.globalAlpha = 1;
+    // sticker card border
+    g.lineWidth = 10; g.strokeStyle = '#F7F4FF'; g.beginPath(); g.roundRect(30, 30, W - 60, W - 60, 48); g.stroke();
+    g.fillStyle = up ? '#8CFF4A' : '#FFD23F'; g.font = D(34); g.fillText('Simple Perps', 90, 140);
+    g.fillStyle = '#F7F4FF'; g.font = D(130); g.fillText(label(t.coin), 84, 320);
     const side = `${t.side === 'long' ? 'LONG' : 'SHORT'} ${Math.round(t.lev || 1)}x`;
-    g.font = F(800, 56); const sw = g.measureText(side).width + 48;
-    g.fillStyle = t.side === 'long' ? '#16a34a' : '#dc2626'; g.beginPath(); g.roundRect(80, 340, sw, 84, 18); g.fill();
-    g.fillStyle = '#fff'; g.fillText(side, 104, 402);
-    g.fillStyle = up ? '#4ade80' : '#f87171'; g.font = F(900, 230);
-    g.fillText(`${up ? '+' : ''}${Number(t.roe ?? 0).toFixed(1)}%`, 70, 680);
-    g.fillStyle = '#cbd5e1'; g.font = F(600, 44);
+    g.font = D(52); const sw = g.measureText(side).width + 56;
+    g.fillStyle = '#000'; g.beginPath(); g.roundRect(98, 372, sw, 88, 18); g.fill();
+    g.fillStyle = t.side === 'long' ? '#8CFF4A' : '#FF3B5C'; g.beginPath(); g.roundRect(88, 362, sw, 88, 18); g.fill();
+    g.lineWidth = 5; g.strokeStyle = '#000'; g.stroke();
+    g.fillStyle = t.side === 'long' ? '#0E0B15' : '#fff'; g.fillText(side, 116, 426);
+    g.fillStyle = up ? '#8CFF4A' : '#FF3B5C'; g.font = D(200);
+    g.fillText(`${up ? '+' : ''}${Number(t.roe ?? 0).toFixed(1)}%`, 76, 690);
+    g.fillStyle = '#D9D1E8'; g.font = B(600, 42);
     const exitPx = t.exitPx ?? t.markPx;
-    g.fillText(`Entry ${money(t.entryPx || 0)}${exitPx ? `  →  ${t.closedAt ? 'Exit' : 'Now'} ${money(exitPx)}` : ''}`, 80, 770);
+    g.fillText(`Entry ${money(t.entryPx || 0)}${exitPx ? `  →  ${t.closedAt ? 'Exit' : 'Now'} ${money(exitPx)}` : ''}`, 90, 780);
     const fl = (t.flairs || []).map(f => FLAIR[f]).filter(Boolean).join('   ');
-    if (fl) { g.fillStyle = '#c7d2fe'; g.font = F(700, 40); g.fillText(fl, 80, 850); }
-    g.fillStyle = '#e8eaf0'; g.font = F(800, 48); g.fillText(`@${t.nickname || 'anon ape'}`, 80, 960);
-    g.fillStyle = '#8b93a7'; g.font = F(600, 32); g.fillText('simpleperps.com · not financial advice 🦍', 80, 1015);
+    if (fl) { g.fillStyle = '#ECE2FF'; g.font = B(700, 38); g.fillText(fl, 90, 852); }
+    g.fillStyle = '#F7F4FF'; g.font = D(46); g.fillText(`@${t.nickname || 'anon ape'}`, 90, 950);
+    g.fillStyle = '#A79FB8'; g.font = B(600, 30); g.fillText('simpleperps.com · not financial advice', 90, 1000);
+    const m = await loadImg('mascot.png');
+    if (m) {
+      g.save(); g.translate(905, 175); g.rotate(.12);
+      g.fillStyle = '#000'; g.beginPath(); g.arc(8, 8, 104, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.arc(0, 0, 104, 0, Math.PI * 2); g.fillStyle = '#F7F4FF'; g.fill();
+      g.beginPath(); g.arc(0, 0, 96, 0, Math.PI * 2); g.clip(); g.drawImage(m, -96, -96, 192, 192); g.restore();
+    }
     return new Promise(ok => c.toBlob(ok, 'image/png'));
   }
   async function shareTrade(t) {
